@@ -85,6 +85,26 @@ a{color:var(--azulejo)}
 .stat.live .n{text-shadow:0 0 18px color-mix(in srgb,var(--accent) 45%,transparent)}
 
 /* ---------- tabs ---------- */
+/* command sidebar */
+.cmd{display:grid;grid-template-columns:208px minmax(0,1fr);gap:20px;align-items:start}
+.cmdnav{display:flex;flex-direction:column;gap:3px;position:sticky;top:calc(env(safe-area-inset-top,0px) + 10px)}
+.cmdnav button{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;text-align:left;background:none;border:0;border-left:3px solid transparent;border-radius:0 8px 8px 0;padding:9px 12px;cursor:pointer;font-family:var(--display);font-weight:600;font-size:14px;color:var(--ink-2)}
+.cmdnav button:hover{background:var(--surface-2);color:var(--ink)}
+.cmdnav button[aria-current="true"]{background:var(--azulejo-soft);border-left-color:var(--azulejo);color:var(--azulejo)}
+.cmdnav .pill{font-family:var(--data);font-size:10.5px;background:var(--surface-2);border-radius:999px;padding:1px 7px;color:var(--ink-3);flex:0 0 auto;font-variant-numeric:tabular-nums}
+.cmdnav button[aria-current="true"] .pill{background:var(--surface);color:var(--azulejo)}
+.cmdnav .pill.done{background:var(--verde-soft);color:var(--verde)}
+.who2{display:grid;grid-template-columns:92px minmax(0,1fr);gap:10px;padding:9px 0;border-bottom:1px dashed var(--line);font-size:13.5px}
+.who2:last-child{border-bottom:0}
+.who2 b{font-family:var(--display);color:var(--azulejo)}
+@media (max-width:760px){
+ .cmd{grid-template-columns:minmax(0,1fr);gap:14px}
+ .cmdnav{position:static;flex-direction:row;overflow-x:auto;scrollbar-width:none;gap:5px;padding-bottom:5px;border-bottom:1px solid var(--line)}
+ .cmdnav::-webkit-scrollbar{display:none}
+ .cmdnav button{width:auto;flex:0 0 auto;border-left:0;border-bottom:3px solid transparent;border-radius:8px 8px 0 0;white-space:nowrap;padding:8px 11px}
+ .cmdnav button[aria-current="true"]{border-left-color:transparent;border-bottom-color:var(--azulejo)}
+ .who2{grid-template-columns:minmax(0,1fr);gap:2px}
+}
 /* import */
 .imp{border:1px solid var(--azulejo);border-radius:var(--r);padding:14px;margin-bottom:13px;background:var(--surface)}
 .imp>h3{font-size:14.5px;font-weight:800;display:flex;align-items:center;gap:8px;justify-content:space-between;flex-wrap:wrap}
@@ -606,7 +626,7 @@ const Local={
  pre(p){try{return Object.keys(localStorage).filter(k=>k.indexOf("sgh:"+p)===0)}catch(e){return[]}}
 };
 
-const state={candidates:{},assignments:{},search:null,learning:null,board:null,tab:"command",open:null,mode:"loading",canWrite:true,filter:"all",justMoved:null};
+const state={candidates:{},assignments:{},search:null,learning:null,board:null,tab:"command",open:null,mode:"loading",canWrite:true,filter:"all",justMoved:null,cmd:null};
 
 const MILESTONES=[
  {id:"first",      hit:m=>m.found>=1,       msg:"First tutor in the pipeline \u2014 the search is live."},
@@ -618,6 +638,8 @@ const MILESTONES=[
  {id:"shortlist",  hit:m=>m.finalists>=2,   msg:"Finalist group ready \u2014 time to tell Cherry."},
  {id:"hired",      hit:m=>m.hired>=1,       msg:"Tutor hired. Lucas starts learning."}
 ];
+const CMD=[{id:"today",label:"Today"},{id:"jobpost",label:"Job post"},{id:"search",label:"Upwork searches"},
+           {id:"update",label:"Daily update"},{id:"mission",label:"The mission"}];
 const FILTERS=[["all","All"],["qualified","Qualified"],["interviewed","Interviewed"],["flagged","Red flags"],["gaps","Needs screening"]];
 function matchFilter(c){
  switch(state.filter){
@@ -914,56 +936,82 @@ function render(){
 }
 
 /* ============================ view: command ============================ */
+function cmdSection(){
+ if(!state.cmd){try{state.cmd=Local.get("cmd")||"today"}catch(e){state.cmd="today"}}
+ return CMD.some(x=>x.id===state.cmd)?state.cmd:"today";
+}
 function viewCommand(){
  const m=metrics(),b=state.board||{};
  const started=state.search&&state.search.startedAt;
+ const sec=cmdSection();
+ const planDone=PLAN.filter((_,i)=>b.plan&&b.plan[i]).length;
+ const handDone=HANDOFF.filter((_,i)=>b.handoff&&b.handoff[i]).length;
+ const pill={today:(planDone+handDone)+"/"+(PLAN.length+HANDOFF.length),
+             search:String(SEARCHES.length), mission:String(REQUIREMENTS.length), jobpost:"", update:""};
+ const body=
+  sec==="today"?`
+   <div class="panel">
+    <h2>Today <span class="tagline">the eight moves, in order</span></h2>
+    <p class="sub"><b>Do not let this become endless research.</b> Find &rarr; verify &rarr; interview &rarr; trial &rarr; Mariaelena &rarr; hire &rarr; start learning.</p>
+    <div style="margin-top:12px">
+     ${PLAN.map((x,i)=>`<div class="check"><input type="checkbox" id="plan-${i}" data-act="board" data-k="plan" data-i="${i}" ${b.plan&&b.plan[i]?"checked":""}><label for="plan-${i}">${esc(x)}</label></div>`).join("")}
+    </div>
+   </div>
+   <div class="panel">
+    <h2>MC's checklist <span class="tagline">the handoff, step by step</span></h2>
+    ${HANDOFF.map((x,i)=>`<div class="check"><input type="checkbox" id="hand-${i}" data-act="board" data-k="handoff" data-i="${i}" ${b.handoff&&b.handoff[i]?"checked":""}><label for="hand-${i}">${esc(x)}</label></div>`).join("")}
+   </div>`
+  :sec==="jobpost"?`
+   <div class="panel">
+    <h2>Upwork job post <span class="tagline">MC posts this</span></h2>
+    <p class="sub">Copy this straight into a new Upwork job. It already asks the four screening questions, so weak applicants filter themselves out.</p>
+    <div class="btnrow" style="margin:12px 0"><button class="btn" data-act="copy" data-src="jobpost">Copy job post</button></div>
+    <div class="copyblock" style="max-height:none"><pre id="jobpost">${esc(JOBPOST)}</pre></div>
+   </div>`
+  :sec==="search"?`
+   <div class="panel">
+    <h2>Upwork talent searches <span class="tagline">MC runs these</span></h2>
+    <p class="sub">Do not wait for applicants. Open each search, then invite strong matches directly from their profile.</p>
+    <div class="searches" style="margin-top:12px">
+     ${SEARCHES.map(x=>`<a class="search" target="_blank" rel="noopener" href="https://www.upwork.com/nx/search/talent/?q=${encodeURIComponent(x.q)}"><b>${esc(x.t)}</b><span>${esc(x.q)}</span></a>`).join("")}
+    </div>
+    <div class="btnrow" style="margin-top:14px"><button class="btn ghost" data-act="newcand">Add a tutor you found</button></div>
+   </div>`
+  :sec==="update"?`
+   <div class="panel">
+    <h2>Daily update to Cherry <span class="tagline">MC sends this</span></h2>
+    <p class="sub">Counts come straight off the pipeline, so this is accurate the moment you send it.</p>
+    <div class="btnrow" style="margin:12px 0"><button class="btn" data-act="copy" data-src="daily">Copy update</button></div>
+    <div class="copyblock" style="max-height:none"><pre id="daily">${esc(dailyText(m))}</pre></div>
+   </div>`
+  :`
+   <div class="panel">
+    <h2>The mission <span class="tagline">what a tutor has to be able to do</span></h2>
+    <p class="sub">We are <b>not</b> simply looking for a native Spanish speaker. The priority is an educator who understands how Spanish is taught academically in American high schools.</p>
+    <div style="margin-top:12px">${REQUIREMENTS.map(x=>`<div class="req">${esc(x)}</div>`).join("")}</div>
+   </div>
+   <div class="panel">
+    <h2>Who does what</h2>
+    <p class="sub">Asked once too often, so it lives here now.</p>
+    <div style="margin-top:10px">
+     ${[["MC","Sources on Upwork, screens, runs the short interviews, books the trial sessions, writes up the finalists."],
+        ["Cherry","Escalation point. Reviews MC's finalists before they reach Mariaelena."],
+        ["Mariaelena","Reads the finalist write-ups, gives trial feedback, and presses one of the four buttons."],
+        ["Lucas","Sits the trial session and says whether it clicked."]]
+       .map(r=>`<div class="who2"><b>${esc(r[0])}</b><span>${esc(r[1])}</span></div>`).join("")}
+    </div>
+   </div>`;
  return `
  ${state.canWrite?"":`<div class="banner">You are viewing this hub without edit access, so nothing you change here will save. Ask Cherry for Contributor or Editor access.</div>`}
  ${started?"":`<div class="banner">The search clock is not running yet. <button class="btn sm" data-act="startclock">Start the clock</button></div>`}
-
- <div class="panel">
-  <h2>The mission <span class="tagline">what a tutor has to be able to do</span></h2>
-  <p class="sub">We are <b>not</b> simply looking for a native Spanish speaker. The priority is an educator who understands how Spanish is taught academically in American high schools.</p>
-  <div class="grid2" style="margin-top:14px">
-   <div><p class="eyebrow">Requirements</p>
-    ${REQUIREMENTS.map(r=>`<div class="req">${esc(r)}</div>`).join("")}
-   </div>
-   <div><p class="eyebrow">Today &mdash; the action plan</p>
-    ${PLAN.map((p,i)=>`<div class="check"><input type="checkbox" id="plan-${i}" data-act="board" data-k="plan" data-i="${i}" ${b.plan&&b.plan[i]?"checked":""}><label for="plan-${i}">${esc(p)}</label></div>`).join("")}
-    <p class="sub" style="margin-top:10px"><b>Do not let this become endless research.</b> Find &rarr; verify &rarr; interview &rarr; trial &rarr; Mariaelena &rarr; hire &rarr; start learning.</p>
-   </div>
-  </div>
- </div>
-
- <div class="panel">
-  <h2>MC's checklist <span class="tagline">the handoff, step by step</span></h2>
-  ${HANDOFF.map((p,i)=>`<div class="check"><input type="checkbox" id="hand-${i}" data-act="board" data-k="handoff" data-i="${i}" ${b.handoff&&b.handoff[i]?"checked":""}><label for="hand-${i}">${esc(p)}</label></div>`).join("")}
- </div>
-
- <div class="grid2">
-  <div class="panel">
-   <h2>Upwork job post</h2>
-   <p class="sub">Copy this straight into a new Upwork job. It already asks the four screening questions, so weak applicants filter themselves out.</p>
-   <div class="btnrow" style="margin:12px 0"><button class="btn" data-act="copy" data-src="jobpost">Copy job post</button></div>
-   <div class="copyblock"><pre id="jobpost">${esc(JOBPOST)}</pre></div>
-  </div>
-  <div class="panel">
-   <h2>Upwork talent searches</h2>
-   <p class="sub">Do not wait for applicants. Open each search, then invite strong matches directly from their profile.</p>
-   <div class="searches" style="margin-top:12px">
-    ${SEARCHES.map(s=>`<a class="search" target="_blank" rel="noopener" href="https://www.upwork.com/nx/search/talent/?q=${encodeURIComponent(s.q)}"><b>${esc(s.t)}</b><span>${esc(s.q)}</span></a>`).join("")}
-   </div>
-   <div class="btnrow" style="margin-top:14px"><button class="btn ghost" data-act="newcand">Add a tutor you found</button></div>
-  </div>
- </div>
-
- <div class="panel">
-  <h2>Daily update to Cherry</h2>
-  <p class="sub">Counts come straight off the pipeline, so this is accurate the moment you send it.</p>
-  <div class="btnrow" style="margin:12px 0"><button class="btn" data-act="copy" data-src="daily">Copy update</button></div>
-  <div class="copyblock"><pre id="daily">${esc(dailyText(m))}</pre></div>
+ <div class="cmd">
+  <nav class="cmdnav" aria-label="Command sections">
+   ${CMD.map(x=>`<button data-act="cmd" data-id="${x.id}" aria-current="${sec===x.id}">${esc(x.label)}${pill[x.id]?`<span class="pill${x.id==="today"&&planDone+handDone===PLAN.length+HANDOFF.length?" done":""}">${esc(pill[x.id])}</span>`:""}</button>`).join("")}
+  </nav>
+  <div>${body}</div>
  </div>`;
 }
+
 function dailyText(m){
  const L=list();
  const next=L.filter(readyForM).map(c=>c.name).filter(Boolean);
@@ -1609,6 +1657,7 @@ document.addEventListener("click",guard(e=>{
  if(a==="delcand"){const x=state.candidates[t.dataset.id];if(!x)return;
    if(t.dataset.sure){state.open=null;removeCandidate(x.id);toast("Removed")}
    else{t.dataset.sure="1";t.textContent="Tap again to remove";setTimeout(()=>{if(t.isConnected){delete t.dataset.sure;t.textContent="Remove tutor"}},3200)} return}
+ if(a==="cmd"){state.cmd=t.dataset.id;Local.set("cmd",t.dataset.id);render();return}
  if(a==="filter"){state.filter=t.dataset.id;render();return}
  if(a==="impopen"){imp.open=true;imp.err="";render();setTimeout(()=>{const n=document.getElementById("imp-text");if(n)n.focus()},60);return}
  if(a==="impreset"){impReset();render();return}
