@@ -115,13 +115,45 @@ main{min-width:0;display:grid;gap:16px;align-content:start}
 .progress .ph b{font-family:var(--serif);font-size:17px;font-weight:650}
 .progress .ph span{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
 .track{height:8px;border-radius:999px;background:var(--sunk);overflow:hidden}
-.track i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--water),var(--clay));transition:width .8s cubic-bezier(.2,.8,.2,1)}
+.track{position:relative}
+.track i{display:block;height:100%;border-radius:999px;position:relative;
+  background:linear-gradient(90deg,var(--water),var(--clay),var(--water));background-size:220% 100%;
+  animation:drift 7s linear infinite;
+  box-shadow:0 0 12px color-mix(in srgb,var(--clay) 55%,transparent);
+  transition:width .9s cubic-bezier(.2,.8,.2,1)}
+@keyframes drift{to{background-position:-220% 0}}
 .steps{display:flex;gap:12px;margin-top:9px;flex-wrap:wrap}
 .steps span{font-size:11.5px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;color:var(--faint)}
 .steps span.done{color:var(--water)}
 .steps span.now{color:var(--clay)}
 .steps span.now::before{content:"\25CF ";}
 
+/* ---------- milestones ---------- */
+.miles{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:10px;margin-top:14px}
+.mile{display:flex;gap:10px;align-items:flex-start;background:var(--bg);border:1px solid var(--line);border-radius:var(--r);padding:11px 13px;font-size:13.5px;color:var(--muted);min-width:0}
+.mile .ic{flex:0 0 auto;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:var(--sunk);font-size:12px;color:var(--faint);font-weight:700}
+.mile.on{background:var(--ok-soft);border-color:transparent;color:var(--ink);font-weight:600;animation:popin .55s cubic-bezier(.2,1.4,.4,1)}
+.mile.on .ic{background:var(--ok);color:#fff}
+@keyframes popin{0%{transform:scale(.94);opacity:.6}60%{transform:scale(1.03)}100%{transform:scale(1);opacity:1}}
+.milehead{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+
+/* ---------- student progress ring ---------- */
+.ring{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.ring svg{width:112px;height:112px;flex:0 0 auto}
+.rtrack{fill:none;stroke:var(--sunk);stroke-width:11}
+.rfill{fill:none;stroke-width:11;stroke-linecap:round;transition:stroke-dashoffset 1.2s cubic-bezier(.2,.8,.2,1);filter:drop-shadow(0 0 5px color-mix(in srgb,var(--water) 55%,transparent))}
+.rnum{font-family:var(--serif);font-size:27px;font-weight:650;fill:var(--ink)}
+.rlab{font-size:8.5px;font-weight:700;letter-spacing:.08em;fill:var(--muted)}
+.ringside{min-width:0;flex:1 1 240px}
+.ringside h3{font-family:var(--serif);font-size:19px;font-weight:650}
+.ringside p{margin:5px 0 0;color:var(--muted);font-size:14px}
+.wins{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:16px}
+.win{border-radius:var(--r);padding:13px 15px;min-width:0}
+.win.a{background:var(--amber-soft)} .win.b{background:var(--water-soft)}
+.win h4{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;margin-bottom:7px;display:flex;align-items:center;gap:6px}
+.win.a h4{color:var(--amber)} .win.b h4{color:var(--water)}
+.win textarea{width:100%;background:var(--panel);border:1.5px solid transparent;border-radius:8px;padding:9px 11px;font-size:14px;min-height:62px;resize:vertical;line-height:1.5}
+.win textarea:focus{border-color:var(--water)}
 /* ---------- buttons ---------- */
 .btn{border:1.5px solid var(--line);background:var(--panel);border-radius:8px;padding:7px 14px;font-weight:600;font-size:14px;color:var(--ink);text-decoration:none;display:inline-block;line-height:1.4}
 .btn:hover{border-color:var(--water);color:var(--water)}
@@ -377,7 +409,7 @@ footer{color:var(--faint);font-size:12.5px;padding-block:20px 10px;border-top:1p
   <div class="toprow">
     <div class="titleline">
       <h1>Spanish Growth Hub</h1>
-      <span class="alarm" id="alarm"><span class="pulse"></span><span id="alarmtext">Find a tutor ASAP</span></span>
+      <span class="alarm" id="alarm"><span class="pulse"></span><span id="alarmtext">\u{1F6A8} Find a tutor ASAP</span></span>
     </div>
     <div class="band-right">
       <button class="btn primary addbtn" data-act="quickadd">Add tutor</button>
@@ -624,14 +656,14 @@ const state={candidates:{},assignments:{},search:null,learning:null,board:null,v
 const qa={name:"",upworkUrl:"",rate:"",timezone:"",added:0};
 
 const MILESTONES=[
- {id:"first",      hit:m=>m.found>=1,       msg:"First tutor in the pipeline \u2014 the search is live."},
- {id:"three",      hit:m=>m.found>=3,       msg:"Three tutors sourced \u2014 enough to compare properly."},
- {id:"screened",   hit:(m,L)=>L.some(c=>unknowns(c)===0), msg:"First tutor fully screened \u2014 all 18 criteria have evidence."},
- {id:"interviewed",hit:m=>m.interviewed>=1, msg:"First interview logged."},
- {id:"trial",      hit:m=>m.trial>=1,       msg:"First trial session under way."},
- {id:"finalist",   hit:m=>m.ready>=1,       msg:"First finalist is with Mariaelena."},
- {id:"shortlist",  hit:m=>m.finalists>=2,   msg:"Finalist group ready \u2014 time to tell Cherry."},
- {id:"hired",      hit:m=>m.hired>=1,       msg:"Tutor hired. Lucas starts learning."}
+ {id:"first",      ic:"\u{1F50E}", label:"First tutor sourced",      hit:m=>m.found>=1,       msg:"First tutor in the pipeline \u2014 the search is live."},
+ {id:"three",      ic:"\u{1F4DA}", label:"Three to compare",         hit:m=>m.found>=3,       msg:"Three tutors sourced \u2014 enough to compare properly."},
+ {id:"screened",   ic:"\u2728",    label:"One fully screened",       hit:(m,L)=>L.some(c=>unknowns(c)===0), msg:"First tutor fully screened \u2014 all 18 criteria have evidence."},
+ {id:"interviewed",ic:"\u{1F399}", label:"First interview",          hit:m=>m.interviewed>=1, msg:"First interview logged."},
+ {id:"trial",      ic:"\u{1F3AF}", label:"First trial session",      hit:m=>m.trial>=1,       msg:"First trial session under way."},
+ {id:"finalist",   ic:"\u2B50",    label:"First finalist",           hit:m=>m.ready>=1,       msg:"First finalist is with Mariaelena."},
+ {id:"shortlist",  ic:"\u{1F91D}", label:"Finalist group ready",     hit:m=>m.finalists>=2,   msg:"Finalist group ready \u2014 time to tell Cherry."},
+ {id:"hired",      ic:"\u{1F3C6}", label:"Tutor hired",              hit:m=>m.hired>=1,       msg:"Tutor hired. Lucas starts learning."}
 ];
 const RAIL=[
  {g:"Work"},
@@ -826,11 +858,11 @@ function tick(){
  if(!el)return;
  const h=hired();
  if(h){
-  al.className="alarm calm"; at.textContent="TUTOR HIRED — "+(h.name||"").toUpperCase();
+  al.className="alarm calm"; at.textContent="\u{1F3C6} TUTOR HIRED — "+(h.name||"").toUpperCase();
   el.textContent=state.search&&state.search.startedAt?fmtSpan(Date.now()-Date.parse(state.search.startedAt))+" to hire":"—";
   return;
  }
- al.className="alarm"; at.textContent="FIND A TUTOR ASAP";
+ al.className="alarm"; at.textContent="\u{1F6A8} FIND A TUTOR ASAP";
  if(!state.search||!state.search.startedAt){el.textContent="not started";return}
  el.textContent=fmtSpan(Date.now()-Date.parse(state.search.startedAt));
 }
@@ -855,8 +887,9 @@ function renderStats(){
  ];
  const prev=lastStats; lastStats=tiles.map(t=>t[1]);
  $("#stats").innerHTML=tiles.map(([k,n,a,how,go],i)=>
-  `<button class="stat${n>0?" live":""}${prev&&prev[i]!==n?" bump":""}" style="--accent:${a}" data-act="tab" data-id="${go}" title="Go to ${esc(go)}"><span class="n">${n}</span><span class="k">${esc(k)}</span><span class="how">${esc(how)}</span></button>`
+  `<button class="stat${n>0?" live":""}${prev&&prev[i]!==n?" bump":""}" style="--accent:${a}" data-act="tab" data-id="${go}" title="Go to ${esc(go)}"><span class="n">${prev?prev[i]:n}</span><span class="k">${esc(k)}</span><span class="how">${esc(how)}</span></button>`
  ).join("");
+ if(prev)$("#stats").querySelectorAll(".n").forEach((el,i)=>{if(prev[i]!==tiles[i][1])countUp(el,prev[i],tiles[i][1]);else el.textContent=tiles[i][1]});
 }
 function renderRail(){
  const m=metrics(),h=hired(),b=state.board||{};
@@ -929,6 +962,17 @@ function renderProgress(){
  </div>`;
 }
 
+const reduced=()=>{try{return matchMedia("(prefers-reduced-motion: reduce)").matches}catch(e){return false}};
+function countUp(el,from,to){
+ if(!el)return;
+ if(reduced()||from===to||from==null){el.textContent=to;return}
+ const t0=performance.now(),d=650;
+ (function step(now){
+  const k=Math.min(1,(now-t0)/d);
+  el.textContent=Math.round(from+(to-from)*(1-Math.pow(1-k,3)));
+  if(k<1)requestAnimationFrame(step); else el.textContent=to;
+ })(t0);
+}
 let lastStats=null;
 function render(){
  const a=document.activeElement, fid=a&&a.id?a.id:null;
@@ -950,6 +994,8 @@ function render(){
 /* ============================ view: command ============================ */
 function viewToday(){
  const b=state.board||{};
+ const got=b.milestones||{};
+ const done=MILESTONES.filter(x=>got[x.id]).length;
  return `
  <div class="panel lead">
   <h2>Find &rarr; verify &rarr; interview &rarr; trial &rarr; Mariaelena &rarr; hire</h2>
@@ -959,6 +1005,15 @@ function viewToday(){
   <h2>Today <span class="tagline">the eight moves, in order</span></h2>
   <div style="margin-top:12px">
    ${PLAN.map((x,i)=>`<div class="check"><input type="checkbox" id="plan-${i}" data-act="board" data-k="plan" data-i="${i}" ${b.plan&&b.plan[i]?"checked":""}><label for="plan-${i}">${esc(x)}</label></div>`).join("")}
+  </div>
+ </div>
+ <div class="panel">
+  <div class="milehead">
+   <h2>\u{1F3C6} Milestones <span class="tagline">${done} of ${MILESTONES.length} reached</span></h2>
+   ${done===MILESTONES.length?`<span class="chip ok">Lucas is learning</span>`:""}
+  </div>
+  <div class="miles">
+   ${MILESTONES.map(x=>`<div class="mile${got[x.id]?" on":""}"><span class="ic">${got[x.id]?x.ic:"\u00b7"}</span><span>${esc(x.label)}</span></div>`).join("")}
   </div>
  </div>
  <div class="panel">
@@ -1199,14 +1254,40 @@ function viewLearning(){
  const weeks=Array.isArray(L.weeks)?L.weeks:[];
  const asg=Object.values(state.assignments).sort((a,b)=>(b.createdAt||"").localeCompare(a.createdAt||""));
  const WF=["School assignment","Upload / scan","Tutor reviews","Lesson prepared","Student session","Tutor notes","Progress updated"];
+ const lv0=SKILLS.map(x=>clamp(Number(lv[x.id]||0),0,5));
+ const avg=lv0.reduce((a,b)=>a+b,0)/SKILLS.length;
+ const pct=Math.round(avg/5*100);
+ const C=2*Math.PI*45, off=(C*(1-pct/100)).toFixed(1);
+ const first=weeks.length?(weeks[0].levels||{}):null;
+ const gained=first?(avg-SKILLS.map(x=>clamp(Number(first[x.id]||0),0,5)).reduce((a,b)=>a+b,0)/SKILLS.length):0;
  return `
  <div class="panel">
-  <h2>Lucas &amp; ${esc(h.name)} <span class="tagline">tutoring is live</span></h2>
-  <div class="btnrow" style="margin-top:10px;align-items:center">
-   <span class="streak"><span class="flame">\u{1F525}</span> ${weeks.length} week${weeks.length===1?"":"s"} logged</span>
-   <span class="chip">${Number(L.sessions||0)} session${Number(L.sessions||0)===1?"":"s"} completed</span>
-   ${h.rate?`<span class="chip">$${esc(h.rate)}/hr</span>`:""}
-   ${h.availability?`<span class="chip">${esc(h.availability)}</span>`:""}
+  <div class="ring">
+   <svg viewBox="0 0 110 110" role="img" aria-label="Overall Spanish progress: ${pct} percent">
+    <defs><linearGradient id="rg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="var(--water)"/><stop offset="1" stop-color="var(--clay)"/></linearGradient></defs>
+    <circle class="rtrack" cx="55" cy="55" r="45"/>
+    <circle class="rfill" cx="55" cy="55" r="45" stroke="url(#rg)"
+      stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${off}" transform="rotate(-90 55 55)"/>
+    <text class="rnum" x="55" y="54" text-anchor="middle" dominant-baseline="middle">${pct}%</text>
+    <text class="rlab" x="55" y="75" text-anchor="middle">OVERALL</text>
+   </svg>
+   <div class="ringside">
+    <h3>\u{1F4DA} Lucas &amp; ${esc(h.name)}</h3>
+    <p>${gained>0.01?`Up <b>${(gained*20).toFixed(0)} points</b> since the first week logged. Keep going.`:weeks.length?"Log this week to start the trend.":"Set this week's levels below, then log the week."}</p>
+    <div class="btnrow" style="margin-top:10px;align-items:center">
+     <span class="streak"><span class="flame">\u{1F525}</span> ${weeks.length} week${weeks.length===1?"":"s"} logged</span>
+     <span class="chip">${Number(L.sessions||0)} session${Number(L.sessions||0)===1?"":"s"} completed</span>
+     ${h.rate?`<span class="chip">$${esc(h.rate)}/hr</span>`:""}
+     ${h.availability?`<span class="chip">${esc(h.availability)}</span>`:""}
+    </div>
+   </div>
+  </div>
+  <div class="wins">
+   <div class="win a"><h4>\u2B50 This week's win</h4>
+    <textarea id="l-win" data-act="learn" data-k="win" placeholder="Something he can now do that he could not do last week">${esc(L.win||"")}</textarea></div>
+   <div class="win b"><h4>\u{1F3AF} Next thing to master</h4>
+    <textarea id="l-next" data-act="learn" data-k="next" placeholder="The one concept to attack next">${esc(L.next||"")}</textarea></div>
   </div>
  </div>
 
@@ -1237,7 +1318,7 @@ function viewLearning(){
  </div>
 
  <div class="panel">
-  <h2>Weekly progress <span class="tagline">improvement over time, skill by skill</span></h2>
+  <h2>\u2728 Weekly progress <span class="tagline">improvement over time, skill by skill</span></h2>
   <p class="sub">Set this week's level for each skill, then log the week. Each sparkline shows every week logged so far, 0&ndash;5.</p>
   <div class="skills" style="margin-top:14px">
    ${SKILLS.map(s=>{
@@ -1251,10 +1332,7 @@ function viewLearning(){
    }).join("")}
   </div>
   <div class="btnrow" style="margin-top:14px"><button class="btn" data-act="logweek">Log this week</button>${weeks.length?`<button class="btn ghost" data-act="undoweek">Undo last week</button>`:""}</div>
-  <div class="fgrid" style="margin-top:16px">
-   <div class="f"><label for="l-win">⭐ This week's win</label><textarea id="l-win" data-act="learn" data-k="win" placeholder="Something he can now do that he could not do last week">${esc(L.win||"")}</textarea></div>
-   <div class="f"><label for="l-next">\u{1F3AF} Next thing to master</label><textarea id="l-next" data-act="learn" data-k="next" placeholder="The one concept to attack next">${esc(L.next||"")}</textarea></div>
-  </div>
+
  </div>
 
  <div class="panel">
