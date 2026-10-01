@@ -921,15 +921,24 @@ function metrics(){
 function tick(){
  const el=$("#elapsed"),al=$("#alarm"),at=$("#alarmtext");
  if(!el)return;
+ const started=state.search&&state.search.startedAt?Date.parse(state.search.startedAt):NaN;
  const h=hired();
  if(h){
   al.className="alarm calm"; at.textContent="\u{1F3C6} TUTOR HIRED — "+(h.name||"").toUpperCase();
-  el.textContent=state.search&&state.search.startedAt?fmtSpan(Date.now()-Date.parse(state.search.startedAt))+" to hire":"—";
-  return;
+  el.textContent=started>0?fmtSpan(Date.now()-started)+" to hire":"—";
+ }else{
+  al.className="alarm"; at.textContent="\u{1F6A8} FIND A TUTOR ASAP";
+  el.textContent=started>0?fmtSpan(Date.now()-started):"not started";
  }
- al.className="alarm"; at.textContent="\u{1F6A8} FIND A TUTOR ASAP";
- if(!state.search||!state.search.startedAt){el.textContent="not started";return}
- el.textContent=fmtSpan(Date.now()-Date.parse(state.search.startedAt));
+ if(started>0)el.title=startedLabel(); else el.removeAttribute("title");
+}
+/* The clock counts from the moment the hub was created. Showing that moment on
+   hover makes the elapsed figure checkable instead of something to take on trust. */
+function startedLabel(){
+ const t=state.search&&state.search.startedAt?Date.parse(state.search.startedAt):NaN;
+ if(!(t>0))return "";
+ return "Counting from "+new Date(t).toLocaleString(undefined,
+   {weekday:"short",day:"numeric",month:"short",hour:"numeric",minute:"2-digit"});
 }
 function fmtSpan(ms){
  if(!(ms>=0))return "—";
