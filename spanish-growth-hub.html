@@ -85,6 +85,20 @@ a{color:var(--azulejo)}
 .stat.live .n{text-shadow:0 0 18px color-mix(in srgb,var(--accent) 45%,transparent)}
 
 /* ---------- tabs ---------- */
+/* presence */
+.presence{display:flex;align-items:center;gap:7px;min-width:0}
+.pstack{display:flex;flex:0 0 auto}
+.pav{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-family:var(--display);font-weight:700;font-size:10.5px;color:#fff;border:2px solid var(--surface);margin-left:-8px;flex:0 0 auto;background:var(--avbg,#15607F)}
+.pstack .pav:first-child{margin-left:0}
+.pav.me{box-shadow:0 0 0 2px var(--marigold)}
+.plabel{font-family:var(--data);font-size:10.5px;color:var(--ink-3);white-space:nowrap;display:flex;align-items:center;gap:5px}
+.livedot{width:7px;height:7px;border-radius:50%;background:var(--verde);flex:0 0 auto;animation:pulse 2.4s ease-in-out infinite}
+.livedot.off{background:var(--ink-3);animation:none}
+.watchers{display:flex;flex:0 0 auto}
+.watchers .pav{width:20px;height:20px;font-size:9px;margin-left:-6px;border-width:1.5px}
+.whoon{display:flex;align-items:center;gap:6px;font-family:var(--data);font-size:10.5px;color:var(--marigold);margin-top:7px}
+.cardwatch{position:absolute;top:10px;right:10px;display:flex}
+.ccard{position:relative}
 /* search progress */
 .progress{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:13px 15px;margin-bottom:18px}
 .progress .ph{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline;margin-bottom:9px}
@@ -332,6 +346,7 @@ footer{color:var(--ink-3);font-size:12px;padding-block:22px 34px;border-top:1px 
       <small id="whoami">Lucas &middot; High-school Spanish</small>
     </div>
     <div class="band-right">
+      <div class="presence" id="presence" hidden></div>
       <div class="alarm" id="alarm"><span class="pulse"></span><span id="alarmtext">FIND A TUTOR ASAP</span></div>
       <div class="clock"><span class="lbl">Time since search started</span><span class="val" id="elapsed">&mdash;</span></div>
     </div>
@@ -556,7 +571,34 @@ function checkMilestones(){
  if(fired){saveMeta("board",0);celebrate();toast(fired)}
 }
 
-let DB=null,ASSETS=null,USER=null,MYID=null;
+let DB=null,ASSETS=null,USER=null,MYID=null,ROOM=null,COMMENTS=null;
+let peers=[],roomLive=false,roomSettled=false,commentsOff=false;
+const NAMES=new Map();
+
+/* Names are resolved through the user capability, never trusted from a peer.
+   Ids are marked pending the moment we ask, so a re-render never re-requests. */
+function nameOf(id){const n=id?NAMES.get(id):"";return n||"Someone"}
+async function resolveNames(ids){
+ if(!USER)return false;
+ const want=[...new Set(ids.filter(id=>id&&!NAMES.has(id)))];
+ if(!want.length)return false;
+ want.forEach(id=>NAMES.set(id,""));
+ try{
+  const map=await USER.profiles(want);
+  let changed=false;
+  want.forEach(id=>{const nm=(map&&map[id]&&map[id].name)||"";if(nm){NAMES.set(id,nm);changed=true}});
+  return changed;
+ }catch(e){return false}
+}
+/* Everyone here now, me last so the stack reads "others, then you". */
+function others(){return peers.filter(x=>x.kind==="viewer"&&!x.isMe)}
+function watchersOf(id){return others().filter(x=>x.presence&&x.presence.viewing===id)}
+function peerAv(x,small){
+ const id=x.by||x.peer, nm=x.by?nameOf(x.by):"Someone";
+ const label=x.isMe?"You":nm+(x.guest?" (guest)":"");
+ const where=x.presence&&x.presence.tab?" \u00b7 on "+x.presence.tab:"";
+ return `<span class="pav${x.isMe?" me":""}" style="--avbg:${avatarColor(id)}" data-tip="${esc(label+where)}" aria-label="${esc(label)}">${esc(initials(x.isMe?"You":nm))}</span>`;
+}
 const chain=new Map();
 function q(key,fn){const p=(chain.get(key)||Promise.resolve()).catch(()=>{}).then(fn);chain.set(key,p);return p.catch(e=>{console.warn("write failed",key,e);if(e&&e.code==="invalid_argument"){state.canWrite=false;render();toast("You have view-only access — changes are not saved.")}});}
 const timers=new Map();
@@ -621,6 +663,24 @@ async function boot(){
   render();
  }
  use("assets").then(a=>{ASSETS=a;render()});
+ use("comments").then(c=>{COMMENTS=c;render()});
+ use("room").then(r=>{
+  ROOM=r; if(!r){roomSettled=true;return}
+  r.onPeers(ch=>{
+    peers=ch.peers.slice();
+    resolveNames(peers.map(x=>x.by)).then(ch2=>{if(ch2)render()});
+    render();
+  },()=>{ROOM=null;peers=[];roomLive=false;render()});
+  r.onConnection(on=>{roomLive=on;render()},()=>{});
+  r.on("nudge",msg=>{
+    if(msg.isMe)return;
+    const c=state.candidates[(msg.data||{}).candidate];
+    toast(nameOf(msg.by)+" asks for a look at "+(c?c.name||"a tutor":"a tutor"));
+  },()=>{});
+  pushPresence();
+  /* don't render "just you" off the first delivery - more peers answer for a second or two */
+  setTimeout(()=>{roomSettled=true;render()},1800);
+ });
  use("user").then(async u=>{
    USER=u; if(!u)return;
    try{MYID=await u.id()}catch(e){}
@@ -727,6 +787,26 @@ function stars(r){
  return out+"</span>";
 }
 
+let lastPres="";
+function pushPresence(){
+ if(!ROOM)return;
+ const want={tab:state.tab,viewing:state.open||null};
+ const sig=JSON.stringify(want);
+ if(sig===lastPres)return;
+ lastPres=sig;
+ ROOM.presence(want).catch(()=>{});
+}
+function renderPresence(){
+ const el=$("#presence");
+ if(!ROOM){el.hidden=true;return}
+ const o=others();
+ if(!o.length&&!roomSettled){el.hidden=true;return}
+ el.hidden=false;
+ const shown=o.slice(0,4), extra=o.length-shown.length;
+ const me=peers.find(x=>x.isMe&&x.sameTab);
+ el.innerHTML=`<span class="pstack">${shown.map(x=>peerAv(x)).join("")}${me?peerAv(me):""}</span>
+  <span class="plabel"><span class="livedot${roomLive?"":" off"}"></span>${o.length?esc((o.length+1)+" here"+(extra>0?" (+"+extra+" more)":"")):"just you"}</span>`;
+}
 function renderProgress(){
  const L=list(), far=L.length?Math.max.apply(null,L.map(ix)):-1;
  const pct=far<0?0:Math.round((far+1)/STAGES.length*100);
@@ -746,7 +826,7 @@ function render(){
  const a=document.activeElement, fid=a&&a.id?a.id:null;
  const ss=a&&typeof a.selectionStart==="number"?a.selectionStart:null;
  const se=a&&typeof a.selectionEnd==="number"?a.selectionEnd:null;
- renderStats(); renderProgress(); renderTabs(); tick();
+ renderStats(); renderProgress(); renderPresence(); renderTabs(); tick(); pushPresence();
  const v=$("#views");
  v.innerHTML=
    state.tab==="command"?viewCommand():
@@ -886,6 +966,7 @@ function ccard(c){
   </div>
   <div class="meterrow"><span>screened</span><span class="meter"><i style="width:${Math.round(done/SCORECARD.length*100)}%"></i></span><span>${done}/${SCORECARD.length}</span></div>
   <div class="meterrow"><span>interview</span><span class="meter"><i style="width:${Math.round(asked(c)/QUESTIONS.length*100)}%"></i></span><span>${asked(c)}/${QUESTIONS.length}</span></div>
+  ${watchersOf(c.id).length?`<span class="cardwatch watchers">${watchersOf(c.id).map(x=>peerAv(x,true)).join("")}</span>`:""}
  </button>`;
 }
 function emptyState(){
@@ -953,6 +1034,11 @@ function finalist(c){
 
   ${(c.trial&&(c.trial.studentFeedback||c.trial.mariaelenaFeedback))?`<div class="sw"><div style="background:var(--surface-2)"><h4 style="color:var(--ink-3)">Lucas's feedback</h4>${esc(c.trial.studentFeedback||"—")}</div><div style="background:var(--surface-2)"><h4 style="color:var(--ink-3)">Mariaelena's trial notes</h4>${esc(c.trial.mariaelenaFeedback||"—")}</div></div>`:""}
 
+  ${(ROOM||(COMMENTS&&!commentsOff))?`<div class="btnrow" style="margin-bottom:11px;align-items:center">
+    ${ROOM?`<button class="btn sm ghost" data-act="nudge" data-id="${c.id}"${others().length?"":" disabled"}>Nudge whoever's here</button>
+      <span class="sparknote">${others().length?esc(others().length+" other"+(others().length>1?"s have":" has")+" the hub open"):"nobody else has the hub open right now"}</span>`:""}
+    ${(COMMENTS&&!commentsOff)?`<button class="btn sm ghost" data-act="discuss">Discuss this tutor</button>`:""}
+  </div>`:""}
   <div class="decide">
    ${[["approve","Approve for trial"],["backup","Keep as backup"],["pass","Pass"],["select","Select tutor"]].map(([k,lab])=>
      `<button class="dbtn" data-d="${k}" data-act="decide" data-id="${c.id}" aria-pressed="${d===k}"><span>${esc(lab)}</span></button>`).join("")}
@@ -1115,6 +1201,7 @@ function renderDrawer(){
     <span class="av" style="--avbg:${avatarColor(c.name)}">${esc(initials(c.name))}</span>
     <span class="who"><b>${esc(c.name||"Unnamed tutor")}</b><span>${esc(STAGES[ix(c)].label)} &middot; ${unknowns(c)} unknown &middot; ${flagCount(c)} flag${flagCount(c)===1?"":"s"}</span></span>
    </div>
+   ${watchersOf(c.id).length?`<span class="watchers" title="also looking at this tutor">${watchersOf(c.id).map(x=>peerAv(x,true)).join("")}</span>`:""}
    <button class="x" data-act="close" aria-label="Close">&times;</button>
   </header>
   <div class="body">${drawerBody(c)}</div>
@@ -1153,7 +1240,12 @@ function drawerBody(c){
    ${fld(c,"credentials","Certifications / degrees","text","e.g. M.Ed, state license")}
    ${fld(c,"meeting","Zoom / Google Meet","text","confirmed? which?")}
   </div>
-  ${c.upworkUrl?`<div class="btnrow" style="margin-top:11px"><a class="btn ghost sm" href="${esc(c.upworkUrl)}" target="_blank" rel="noopener">Open Upwork profile</a></div>`:""}
+  <div class="btnrow" style="margin-top:11px">
+   ${c.upworkUrl?`<a class="btn ghost sm" href="${esc(c.upworkUrl)}" target="_blank" rel="noopener">Open Upwork profile</a>`:""}
+   ${(COMMENTS&&!commentsOff)?`<button class="btn ghost sm" data-act="discuss">Discuss this tutor</button>`:""}
+   ${ROOM?`<button class="btn ghost sm" data-act="nudge" data-id="${c.id}"${others().length?"":" disabled"}>Nudge whoever's here</button>`:""}
+  </div>
+  ${watchersOf(c.id).length?`<div class="whoon"><span class="livedot"></span>${esc(watchersOf(c.id).map(x=>x.by?nameOf(x.by):"Someone").join(", "))} ${watchersOf(c.id).length>1?"are":"is"} looking at this tutor too</div>`:""}
  </div>
 
  <div class="dsec">
@@ -1262,6 +1354,22 @@ document.addEventListener("click",e=>{
    if(t.dataset.sure){state.open=null;removeCandidate(x.id);toast("Removed")}
    else{t.dataset.sure="1";t.textContent="Tap again to remove";setTimeout(()=>{if(t.isConnected){delete t.dataset.sure;t.textContent="Remove tutor"}},3200)} return}
  if(a==="filter"){state.filter=t.dataset.id;render();return}
+ if(a==="nudge"){
+   if(!ROOM)return;
+   ROOM.emit("nudge",{candidate:t.dataset.id}).then(()=>toast("Nudged everyone with the hub open"))
+    .catch(err=>toast(err&&err.code==="not_permitted"?"Nudging needs Contributor access.":"The nudge did not go out."));
+   return}
+ if(a==="discuss"){
+   if(!COMMENTS)return;
+   const host=t.closest(".finalist")||t.closest(".dsec")||t;
+   COMMENTS.openComposer({element:host}).then(r=>{
+     if(!r||!r.opened)return; /* soft refusal: the shell is protecting a draft - do nothing */
+   }).catch(err=>{
+     if(err&&err.code==="unavailable"){commentsOff=true;render();toast("Commenting from the page is off here.")}
+     else if(err&&(err.code==="not_granted"||err.code==="capability_disabled"||err.code==="capability_removed")){COMMENTS=null;render()}
+     else toast("Could not open the comment box.");
+   });
+   return}
  if(a==="score"&&c){const s=t.dataset.s;c.scores=c.scores||{};c.scores[s]=Object.assign({e:""},c.scores[s],{v:t.dataset.v});saveCandidate(c,0);render();checkMilestones();return}
  if(a==="trial"&&c){const k=t.dataset.t,n=Number(t.dataset.n);c.trial=c.trial||{};c.trial.scores=c.trial.scores||{};
    c.trial.scores[k]=c.trial.scores[k]===n?0:n;saveCandidate(c,0);render();checkMilestones();return}

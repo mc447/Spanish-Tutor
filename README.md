@@ -10,6 +10,22 @@ A single-file command center for Lucas's Spanish tutor search, built from Juan's
 - **Mariaelena** — finalists only, each with strengths, concerns, interview notes and trial results, and four buttons: approve for trial, keep as backup, pass, select tutor.
 - **Learning** — unlocks on hire. Current unit, upcoming quizzes and tests, vocabulary and grammar, a regular -ar/-er/-ir conjugation frame, weekly progress sparklines across eight skills, the homework upload workflow, and tutor notes.
 
+## Working together
+
+The hub is live for whoever has it open at the same time:
+
+- **Presence** — an avatar stack in the header shows who else is in the hub and which
+  tab they are on; a badge on a candidate card and a line in the drawer show who else
+  is looking at that tutor, so two people don't screen the same person blind.
+- **Nudge** — on a finalist card or in the drawer, pings everyone who currently has the
+  hub open. It reaches nobody who is away, and the button says so and disables itself
+  when you are alone.
+- **Discuss** — opens claude.ai's own comment composer anchored to that tutor. Threads
+  live in the artifact's comment panel, not in the page; the page only opens the box.
+
+Presence is advisory and never gates anything: anyone can set it, so nothing is locked
+on the strength of it.
+
 ## How the data works
 
 State lives in the artifact's shared database (`db` capability) so MC, Cherry and Mariaelena
@@ -19,3 +35,7 @@ browser-local storage and says so in the footer.
 
 Collections: `candidates`, `assignments`, and the documents `meta/search`, `meta/learning`,
 `meta/board`.
+
+Capabilities declared: `db`, `user` (profile scope, for names), `assets` (homework
+attachments), `room` (presence, with the `nudge` topic open to Contributors), and
+`comments` in composer-only form so no consent prompt is ever shown.
