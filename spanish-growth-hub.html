@@ -301,6 +301,13 @@ main{min-width:0;display:grid;gap:16px;align-content:start}
 .hwrow b{font-size:15px;display:block;overflow-wrap:anywhere}
 .hwrow .hm{font-size:12.5px;color:var(--muted)}
 
+/* ---------- quick add ---------- */
+.quick{border:1px solid var(--water);border-radius:var(--r);box-shadow:var(--shadow);padding:16px 18px;background:var(--panel)}
+.quick>h2{display:flex;align-items:baseline;gap:10px;justify-content:space-between;flex-wrap:wrap}
+.quick .added{font-size:13px;font-weight:600;color:var(--ok)}
+.quick .dupe{background:var(--amber-soft);color:var(--amber);border-radius:8px;padding:9px 12px;font-size:13.5px;margin-top:10px}
+.addbtn{display:inline-flex;align-items:center;gap:6px}
+.addbtn::before{content:"+";font-size:17px;line-height:1;font-weight:700;margin-top:-1px}
 /* ---------- import ---------- */
 .imp{border:1px solid var(--water);border-radius:var(--r);box-shadow:var(--shadow);padding:16px 18px;background:var(--panel)}
 .imp>h3{font-family:var(--serif);font-size:18px;font-weight:650;display:flex;align-items:center;gap:10px;justify-content:space-between;flex-wrap:wrap}
@@ -373,6 +380,7 @@ footer{color:var(--faint);font-size:12.5px;padding-block:20px 10px;border-top:1p
       <span class="alarm" id="alarm"><span class="pulse"></span><span id="alarmtext">Find a tutor ASAP</span></span>
     </div>
     <div class="band-right">
+      <button class="btn primary addbtn" data-act="quickadd">Add tutor</button>
       <div class="presence" id="presence" hidden></div>
       <div class="clock"><span class="lbl">Time since search started</span><span class="val" id="elapsed">&mdash;</span></div>
     </div>
@@ -608,7 +616,8 @@ const Local={
  pre(p){try{return Object.keys(localStorage).filter(k=>k.indexOf("sgh:"+p)===0)}catch(e){return[]}}
 };
 
-const state={candidates:{},assignments:{},search:null,learning:null,board:null,view:"today",open:null,mode:"loading",canWrite:true,filter:"all",justMoved:null};
+const state={candidates:{},assignments:{},search:null,learning:null,board:null,view:"today",open:null,mode:"loading",canWrite:true,filter:"all",justMoved:null,quick:false};
+const qa={name:"",upworkUrl:"",rate:"",timezone:"",added:0};
 
 const MILESTONES=[
  {id:"first",      hit:m=>m.found>=1,       msg:"First tutor in the pipeline \u2014 the search is live."},
@@ -970,7 +979,7 @@ function viewSearch(){
   <div class="searches" style="margin-top:14px">
    ${SEARCHES.map(x=>`<a class="search" target="_blank" rel="noopener" href="https://www.upwork.com/nx/search/talent/?q=${encodeURIComponent(x.q)}"><b>${esc(x.t)}</b><span>${esc(x.q)}</span></a>`).join("")}
   </div>
-  <div class="btnrow" style="margin-top:16px"><button class="btn primary" data-act="newcand">Add a tutor you found</button></div>
+  <div class="btnrow" style="margin-top:16px"><button class="btn primary addbtn" data-act="quickadd">Add a tutor you found</button></div>
  </div>`;
 }
 function viewUpdate(){
@@ -1040,14 +1049,34 @@ function pcard(c){
 }
 
 /* ============================ view: candidates ============================ */
+function quickPanel(){
+ if(!state.quick)return "";
+ const dupe=list().find(c=>(c.name||"").trim().toLowerCase()===qa.name.trim().toLowerCase()&&qa.name.trim());
+ return `<div class="quick">
+  <h2>Add a tutor${qa.added?`<span class="added">${qa.added} added this session</span>`:`<span class="tagline">name is all you need to start</span>`}</h2>
+  <p class="sub">Log them now while you are on Upwork, screen them later. Keep going and the form stays open for the next one.</p>
+  <div class="fgrid" style="margin-top:13px">
+   <div class="f"><label for="qa-name">Name</label><input id="qa-name" data-act="qa" data-k="name" value="${esc(qa.name)}" placeholder="As it appears on Upwork" autocomplete="off"></div>
+   <div class="f"><label for="qa-upworkUrl">Upwork profile URL</label><input id="qa-upworkUrl" type="url" data-act="qa" data-k="upworkUrl" value="${esc(qa.upworkUrl)}" placeholder="https://www.upwork.com/freelancers/..." autocomplete="off"></div>
+   <div class="f"><label for="qa-rate">Hourly rate (USD)</label><input id="qa-rate" data-act="qa" data-k="rate" value="${esc(qa.rate)}" placeholder="e.g. 32" autocomplete="off"></div>
+   <div class="f"><label for="qa-timezone">Time zone</label><input id="qa-timezone" data-act="qa" data-k="timezone" value="${esc(qa.timezone)}" placeholder="e.g. CST (UTC-6)" autocomplete="off"></div>
+  </div>
+  ${dupe?`<div class="dupe"><b>${esc(dupe.name)}</b> is already in the pipeline at ${esc(STAGES[ix(dupe)].label)}. Adding again will create a second card.</div>`:""}
+  <div class="btnrow" style="margin-top:14px">
+   <button class="btn primary" data-act="qasave"${qa.name.trim()?"":" disabled"}>Add and keep going</button>
+   <button class="btn ghost" data-act="qaopen"${qa.name.trim()?"":" disabled"}>Add and open profile</button>
+   <button class="btn ghost" data-act="qaclose">Done</button>
+  </div>
+ </div>`;
+}
 function viewCandidates(){
  const L=list();
- if(!L.length)return emptyState();
+ if(!L.length)return quickPanel()+emptyState();
  const shown=L.filter(matchFilter);
  const count=f=>{const k=state.filter;state.filter=f;const n=L.filter(matchFilter).length;state.filter=k;return n};
- return `<div class="panel"><h2>Candidates <span class="tagline">${L.length} logged &middot; evidence, not vibes</span></h2>
+ return quickPanel()+`<div class="panel"><h2>Candidates <span class="tagline">${L.length} logged &middot; evidence, not vibes</span></h2>
   <div class="filters">${FILTERS.map(([id,lab])=>`<button data-act="filter" data-id="${id}" aria-pressed="${state.filter===id}">${esc(lab)} ${count(id)}</button>`).join("")}</div>
-  <div class="btnrow" style="margin:0 0 16px"><button class="btn" data-act="newcand">Add a tutor</button></div>
+  <div class="btnrow" style="margin:0 0 16px"><button class="btn primary addbtn" data-act="quickadd">Add a tutor</button></div>
   ${shown.length?`<div class="cards">${shown.map(ccard).join("")}</div>`
     :`<p class="sub">No tutor matches that filter yet. <button class="btn sm ghost" data-act="filter" data-id="all">Show all ${L.length}</button></p>`}
   </div>`;
@@ -1078,7 +1107,7 @@ function emptyState(){
  return `<div class="empty">
   <h3>No tutors logged yet</h3>
   <p>This fills up the moment MC starts sourcing. Post the job on the Command tab, run the Upwork talent searches, then add every promising tutor here with their rate, time zone and profile link.</p>
-  <div class="btnrow" style="justify-content:center"><button class="btn" data-act="newcand">Add the first tutor</button><button class="btn ghost" data-act="tab" data-id="today">Open Today</button></div>
+  <div class="btnrow" style="justify-content:center"><button class="btn primary addbtn" data-act="quickadd">Add the first tutor</button><button class="btn ghost" data-act="tab" data-id="today">Open Today</button></div>
  </div>`;
 }
 function initials(n){return (n||"?").trim().split(/\s+/).slice(0,2).map(w=>w[0]||"").join("").toUpperCase()||"?"}
@@ -1612,6 +1641,18 @@ function setStage(id,stage){
  render(); checkMilestones();
 }
 let movedT=null;
+function qaClear(){qa.name="";qa.upworkUrl="";qa.rate="";qa.timezone="";}
+function qaCreate(){
+ const name=qa.name.trim();
+ if(!name)return null;
+ const c={id:uid(),name,stage:"sourcing",scores:{},flags:{},interview:{answers:{},asked:{}},
+          trial:{scores:{}},review:{},createdAt:new Date().toISOString()};
+ if(qa.upworkUrl.trim())c.upworkUrl=qa.upworkUrl.trim();
+ if(qa.rate.trim())c.rate=qa.rate.trim();
+ if(qa.timezone.trim())c.timezone=qa.timezone.trim();
+ saveCandidate(c,0);
+ return c;
+}
 function newCandidate(){
  const c={id:uid(),name:"",stage:"sourcing",scores:{},flags:{},interview:{answers:{},asked:{}},trial:{scores:{}},review:{},createdAt:new Date().toISOString()};
  saveCandidate(c,0); state.open=c.id; state.view="candidates"; state.filter="all"; render(); checkMilestones();
@@ -1637,6 +1678,22 @@ document.addEventListener("click",guard(e=>{
  if(a==="open"){state.open=t.dataset.id;drawerScroll=0;impReset();render();return}
  if(a==="close"){state.open=null;impReset();render();return}
  if(a==="newcand"){newCandidate();return}
+ if(a==="quickadd"){
+   state.view="candidates";state.quick=true;state.filter="all";Local.set("view","candidates");
+   render();setTimeout(()=>{const n=document.getElementById("qa-name");if(n)n.focus()},60);return}
+ if(a==="qaclose"){state.quick=false;qaClear();render();return}
+ if(a==="qasave"){
+   const c=qaCreate(); if(!c)return;
+   qa.added++; qaClear(); render(); checkMilestones();
+   toast(c.name+" added — next one?");
+   setTimeout(()=>{const n=document.getElementById("qa-name");if(n)n.focus()},40);
+   return}
+ if(a==="qaopen"){
+   const c=qaCreate(); if(!c)return;
+   qa.added++; qaClear(); state.quick=false; state.open=c.id; drawerScroll=0; impReset();
+   render(); checkMilestones();
+   setTimeout(()=>{const n=document.getElementById("f-name");if(n)n.focus()},60);
+   return}
  if(a==="copy"){copyText(t.dataset.src);return}
  if(a==="startclock"){state.search={startedAt:new Date().toISOString()};saveMeta("search",0);render();toast("Clock started");return}
  if(a==="advance"){const x=state.candidates[t.dataset.id];if(x)setStage(x.id,STAGES[Math.min(ix(x)+1,STAGES.length-1)].id);return}
@@ -1715,6 +1772,13 @@ document.addEventListener("change",guard(e=>{
 document.addEventListener("input",guard(e=>{
  const t=e.target.closest("[data-act]"); if(!t)return;
  const a=t.dataset.act,c=cur();
+ if(a==="qa"){qa[t.dataset.k]=t.value;
+   const sv=document.querySelector('[data-act="qasave"]'), op=document.querySelector('[data-act="qaopen"]');
+   const ready=!!qa.name.trim();
+   if(sv)sv.disabled=!ready; if(op)op.disabled=!ready;
+   clearTimeout(timers.get("qad"));
+   timers.set("qad",setTimeout(()=>{if(state.quick)render()},600));
+   return}
  if(a==="imptext"){imp.text=t.value;
    /* toggle the run button directly: a full re-render on every keystroke would be wasteful */
    const rb=document.querySelector('[data-act="imprun"]');
@@ -1732,7 +1796,18 @@ document.addEventListener("input",guard(e=>{
    const out=document.getElementById("conjout");if(out)out.innerHTML=conjugate(t.value);return}
 }));
 
-document.addEventListener("keydown",e=>{if(e.key==="Escape"&&state.open){state.open=null;render()}});
+document.addEventListener("keydown",guard(e=>{
+ if(e.key==="Escape"&&state.open){state.open=null;impReset();render();return}
+ if(e.key==="Escape"&&state.quick&&!state.open){state.quick=false;qaClear();render();return}
+ /* Enter anywhere in the quick form adds the tutor and keeps the form open */
+ if(e.key==="Enter"&&state.quick&&!state.open){
+  const t=e.target;
+  if(t&&t.dataset&&t.dataset.act==="qa"&&qa.name.trim()){
+   e.preventDefault();
+   const b=document.querySelector('[data-act="qasave"]'); if(b)b.click();
+  }
+ }
+}));
 
 /* chart tooltip */
 const tipEl=()=>document.getElementById("tip");

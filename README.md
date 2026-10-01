@@ -18,6 +18,12 @@ It covers the whole run:
   objective. **Job post**, **Upwork searches**, **Daily update** and **The mission** (the
   requirements plus who does what) sit under Reference.
 - **Pipeline** — Sourcing → Screening → Interview → Trial Session → Mariaelena Review → Selected → Hired, drag-and-drop on desktop, one-tap advance on touch.
+- **Add tutor** — a primary button in the sticky header, so a tutor can be logged from
+  any view. It opens a quick-add form (name, Upwork URL, rate, time zone) that stays open
+  after each save and counts what you have added, so a sourcing run becomes one pass
+  instead of one trip through the drawer per tutor. Enter saves, Escape closes, a repeated
+  name is flagged but never blocked, and "Add and open profile" jumps straight into the
+  full record.
 - **Candidates** — full profile per tutor, an 18-item screening scorecard where every row carries evidence and unknowns stay visibly unknown, the 9 red flags, the 11 interview questions with notes, and the 11-point trial evaluation with Lucas's and Mariaelena's feedback.
 - **Mariaelena** — finalists only, each with strengths, concerns, interview notes and trial results, and four buttons: approve for trial, keep as backup, pass, select tutor.
 - **Learning** — unlocks on hire. Current unit, upcoming quizzes and tests, vocabulary and grammar, a regular -ar/-er/-ir conjugation frame, weekly progress sparklines across eight skills, the homework upload workflow, and tutor notes.
