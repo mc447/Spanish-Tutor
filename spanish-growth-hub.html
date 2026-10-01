@@ -608,6 +608,10 @@ const use=n=>C&&C.use?C.use(n).catch(()=>null):Promise.resolve(null);
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const uid=()=>"c"+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
+/* The store freezes every delivered snapshot and its data(), nested objects
+   included, so a shallow copy still hands back frozen children. Take a deep,
+   mutable copy on the way in and the page can edit its own state freely. */
+function mut(o){ try{ return o==null?{}:JSON.parse(JSON.stringify(o)); }catch(e){ return {}; } }
 
 const Local={
  get(k){try{const v=localStorage.getItem("sgh:"+k);return v?JSON.parse(v):null}catch(e){return null}},
@@ -649,8 +653,8 @@ function matchFilter(c){
  }
 }
 function checkMilestones(){
- const b=state.board||(state.board={});
- const done=b.milestones||(b.milestones={});
+ const b=state.board=Object.assign({},state.board);
+ const done=b.milestones=Object.assign({},b.milestones);
  const m=metrics(),L=list();
  let fired=null;
  for(const ms of MILESTONES){ if(!done[ms.id]&&ms.hit(m,L)){done[ms.id]=true;fired=ms.msg} }
@@ -731,16 +735,16 @@ async function boot(){
  if(DB){
   state.mode="db";
   DB.collection("candidates").onSnapshot(s=>{
-    const next={}; s.docs.forEach(d=>{next[d.id]=Object.assign({id:d.id},d.data())});
+    const next={}; s.docs.forEach(d=>{next[d.id]=Object.assign({id:d.id},mut(d.data()))});
     state.candidates=next; render();
   },onErr);
   DB.collection("assignments").onSnapshot(s=>{
-    const next={}; s.docs.forEach(d=>{next[d.id]=Object.assign({id:d.id},d.data())});
+    const next={}; s.docs.forEach(d=>{next[d.id]=Object.assign({id:d.id},mut(d.data()))});
     state.assignments=next; render();
   },onErr);
-  DB.doc("meta/search").onSnapshot(s=>{state.search=s.exists?s.data():null;render();tick();},onErr);
-  DB.doc("meta/learning").onSnapshot(s=>{state.learning=s.exists?s.data():null;render();},onErr);
-  DB.doc("meta/board").onSnapshot(s=>{state.board=s.exists?s.data():null;render();},onErr);
+  DB.doc("meta/search").onSnapshot(s=>{state.search=s.exists?mut(s.data()):null;render();tick();},onErr);
+  DB.doc("meta/learning").onSnapshot(s=>{state.learning=s.exists?mut(s.data()):null;render();},onErr);
+  DB.doc("meta/board").onSnapshot(s=>{state.board=s.exists?mut(s.data()):null;render();},onErr);
  }else{
   state.mode="local";
   state.search=Local.get("meta:search");
@@ -1617,8 +1621,8 @@ function applyImport(){
   const kind=k.slice(0,1), id=k.slice(2);
   if(kind==="f"){const v=r.fields[id]; if(v){c[id]=v.value;n++}}
   else if(kind==="s"){const x=r.scores.find(y=>y.id===id);
-    if(x){c.scores=c.scores||{};c.scores[id]={v:x.rating,e:x.quote};n++}}
-  else if(kind==="r"){if(r.flags.some(y=>y.id===id)){c.flags=c.flags||{};c.flags[id]=true;n++}}
+    if(x){c.scores=Object.assign({},c.scores);c.scores[id]={v:x.rating,e:x.quote};n++}}
+  else if(kind==="r"){if(r.flags.some(y=>y.id===id)){c.flags=Object.assign({},c.flags);c.flags[id]=true;n++}}
   else if(kind==="w"){
     if(id==="whyFit"&&r.whyFit){c.whyFit=r.whyFit;n++}
     if(id==="strengths"&&r.strengths.length){c.strengths=r.strengths.join("\n");n++}
@@ -1724,8 +1728,8 @@ document.addEventListener("click",guard(e=>{
      else toast("Could not open the comment box.");
    });
    return}
- if(a==="score"&&c){const s=t.dataset.s;c.scores=c.scores||{};c.scores[s]=Object.assign({e:""},c.scores[s],{v:t.dataset.v});saveCandidate(c,0);render();checkMilestones();return}
- if(a==="trial"&&c){const k=t.dataset.t,n=Number(t.dataset.n);c.trial=c.trial||{};c.trial.scores=c.trial.scores||{};
+ if(a==="score"&&c){const s=t.dataset.s;c.scores=Object.assign({},c.scores);c.scores[s]=Object.assign({e:""},c.scores[s],{v:t.dataset.v});saveCandidate(c,0);render();checkMilestones();return}
+ if(a==="trial"&&c){const k=t.dataset.t,n=Number(t.dataset.n);c.trial=Object.assign({},c.trial);c.trial.scores=Object.assign({},c.trial.scores);
    c.trial.scores[k]=c.trial.scores[k]===n?0:n;saveCandidate(c,0);render();checkMilestones();return}
  if(a==="decide"){const x=state.candidates[t.dataset.id];if(!x)return;
    const d=t.dataset.d;
@@ -1735,14 +1739,14 @@ document.addEventListener("click",guard(e=>{
    saveCandidate(x,0);
    if(d==="select"){toast(x.name+" selected — the Learning tab is open.");state.view="learning"}
    render(); checkMilestones(); return}
- if(a==="level"){const L=state.learning||(state.learning={});L.levels=L.levels||{};
+ if(a==="level"){const L=state.learning=Object.assign({},state.learning);L.levels=Object.assign({},L.levels);
    const s=t.dataset.s,n=Number(t.dataset.n);
    L.levels[s]=L.levels[s]===n?n-1:n; saveMeta("learning",0); render(); return}
- if(a==="logweek"){const L=state.learning||(state.learning={});L.weeks=Array.isArray(L.weeks)?L.weeks:[];
+ if(a==="logweek"){const L=state.learning=Object.assign({},state.learning);L.weeks=Array.isArray(L.weeks)?L.weeks.slice():[];
    L.weeks.push({at:new Date().toISOString(),levels:Object.assign({},L.levels||{})});
    if(L.weeks.length>40)L.weeks=L.weeks.slice(-40);
    saveMeta("learning",0);render();celebrate();toast("Week "+L.weeks.length+" logged");return}
- if(a==="undoweek"){const L=state.learning||{};if(Array.isArray(L.weeks)&&L.weeks.length){L.weeks.pop();saveMeta("learning",0);render()}return}
+ if(a==="undoweek"){const L=state.learning=Object.assign({},state.learning);if(Array.isArray(L.weeks)&&L.weeks.length){L.weeks=L.weeks.slice(0,-1);saveMeta("learning",0);render()}return}
  if(a==="addasg"){
    const ti=document.getElementById("a-title"),du=document.getElementById("a-due");
    const title=(ti&&ti.value||"").trim();
@@ -1750,7 +1754,7 @@ document.addEventListener("click",guard(e=>{
    const asg={id:uid(),title,due:du?du.value:"",stage:"Upload / scan",createdAt:new Date().toISOString()};
    if(pendingFile){asg.assetId=pendingFile.id;asg.url=pendingFile.url;asg.filename=pendingFile.name;pendingFile=null}
    saveAssignment(asg);if(ti)ti.value="";if(du)du.value="";render();toast("Assignment added");return}
- if(a==="asgstage"){const x=state.assignments[t.dataset.id];if(!x)return;
+ if(a==="asgstage"){const x=Object.assign({},state.assignments[t.dataset.id]);if(!x.id)return;
    const WF=["Upload / scan","Tutor reviews","Lesson prepared","Student session","Tutor notes","Progress updated"];
    x.stage=WF[Math.min(WF.indexOf(x.stage||"Upload / scan")+1,WF.length-1)];saveAssignment(x);render();return}
  if(a==="delasg"){removeAssignment(t.dataset.id);return}
@@ -1759,11 +1763,11 @@ document.addEventListener("click",guard(e=>{
 document.addEventListener("change",guard(e=>{
  const t=e.target.closest("[data-act]"); if(!t)return;
  const a=t.dataset.act,c=cur();
- if(a==="flag"&&c){c.flags=c.flags||{};c.flags[t.dataset.f]=t.checked;saveCandidate(c,0);render();checkMilestones();return}
- if(a==="askq"&&c){c.interview=c.interview||{answers:{},asked:{}};c.interview.asked=c.interview.asked||{};
+ if(a==="flag"&&c){c.flags=Object.assign({},c.flags);c.flags[t.dataset.f]=t.checked;saveCandidate(c,0);render();checkMilestones();return}
+ if(a==="askq"&&c){c.interview=Object.assign({answers:{},asked:{}},c.interview);c.interview.asked=Object.assign({},c.interview.asked);
    c.interview.asked["q"+t.dataset.n]=t.checked;saveCandidate(c,0);render();checkMilestones();return}
  if(a==="stage"){setStage(t.dataset.id,t.value);return}
- if(a==="board"){const b=state.board||(state.board={});const k=t.dataset.k;b[k]=b[k]||{};b[k][t.dataset.i]=t.checked;saveMeta("board",0);render();return}
+ if(a==="board"){const b=state.board=Object.assign({},state.board);const k=t.dataset.k;b[k]=Object.assign({},b[k]);b[k][t.dataset.i]=t.checked;saveMeta("board",0);render();return}
  if(a==="file"){handleFile(t.files&&t.files[0]);return}
  if(a==="imppick"){imp.pick[t.dataset.k]=t.checked;render();return}
  if(a==="impimg"){imp.files=t.files&&t.files.length?Array.from(t.files):null;imp.err="";render();return}
@@ -1787,12 +1791,12 @@ document.addEventListener("input",guard(e=>{
    timers.set("impl",setTimeout(()=>{if(imp.open&&!imp.busy&&!imp.res)render()},500));
    return}
  if(a==="cf"&&c){c[t.dataset.k]=t.value;saveCandidate(c);softRender();return}
- if(a==="ev"&&c){const s=t.dataset.s;c.scores=c.scores||{};c.scores[s]=Object.assign({v:"unknown"},c.scores[s],{e:t.value});saveCandidate(c);softRender();return}
- if(a==="qa"&&c){c.interview=c.interview||{answers:{},asked:{}};c.interview.answers=c.interview.answers||{};
+ if(a==="ev"&&c){const s=t.dataset.s;c.scores=Object.assign({},c.scores);c.scores[s]=Object.assign({v:"unknown"},c.scores[s],{e:t.value});saveCandidate(c);softRender();return}
+ if(a==="qa"&&c){c.interview=Object.assign({answers:{},asked:{}},c.interview);c.interview.answers=Object.assign({},c.interview.answers);
    c.interview.answers["q"+t.dataset.n]=t.value;saveCandidate(c);softRender();return}
- if(a==="tf"&&c){c.trial=c.trial||{scores:{}};c.trial[t.dataset.k]=t.value;saveCandidate(c);softRender();return}
- if(a==="learn"){const L=state.learning||(state.learning={});L[t.dataset.k]=t.value;saveMeta("learning");return}
- if(a==="verb"){const L=state.learning||(state.learning={});L.verb=t.value;saveMeta("learning");
+ if(a==="tf"&&c){c.trial=Object.assign({scores:{}},c.trial);c.trial[t.dataset.k]=t.value;saveCandidate(c);softRender();return}
+ if(a==="learn"){const L=state.learning=Object.assign({},state.learning);L[t.dataset.k]=t.value;saveMeta("learning");return}
+ if(a==="verb"){const L=state.learning=Object.assign({},state.learning);L.verb=t.value;saveMeta("learning");
    const out=document.getElementById("conjout");if(out)out.innerHTML=conjugate(t.value);return}
 }));
 
