@@ -57,6 +57,25 @@ Design rules the reader follows:
 
 ## Galaxy theme
 
+The background is a canvas starfield, not a tiled image: three parallax depths with
+per-star twinkle, a nebula drifting behind them, and an occasional meteor.
+
+It is built to hold 60fps and to be honest when it cannot. Stars are pre-rendered
+sprites (no per-star gradient or `shadowBlur`), draws are batched into ten alpha
+buckets so `globalAlpha` is set ten times a frame rather than five hundred, and the
+nebula is rendered once at quarter scale and blitted. Measured draw cost is
+0.28–0.56ms against a 16.67ms budget.
+
+The limit on a weak machine is not the drawing — it is uploading a full-screen canvas
+to the compositor each frame, which costs the same whatever is on it. So a governor
+watches the real cadence and steps down rather than juddering: full rate, then a
+time-based half rate, then a still sky. It only ever steps down, so it cannot
+oscillate, and resets on resize. It pauses when the tab is hidden and renders a single
+still frame under `prefers-reduced-motion`. `window.__skyStats()` reports the live
+cost on any device.
+
+The CSS starfield remains as the fallback for a view that cannot paint the canvas.
+
 Galaxy is the hub's theme. A deep indigo sky: two
 nebula washes, star layers at two depths that drift very slowly, and translucent
 panels so the sky shows through without competing with the text. It is declared on

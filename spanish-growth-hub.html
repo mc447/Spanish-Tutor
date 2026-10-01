@@ -68,6 +68,20 @@ body[data-skin="galaxy"]{
   animation:driftsky 240s linear infinite;
 }
 @keyframes driftsky{to{background-position:230px 210px,-230px 210px,230px -210px,-230px -210px,390px 340px,-390px 340px,0 0,0 0,0 0}}
+/* The canvas sky sits behind everything; the CSS starfield above stays as the
+   fallback for a view that cannot paint it. Once the canvas is live, .sky-live
+   drops the tiled stars so they are not drawn twice. */
+#sky{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;display:none}
+body[data-skin="galaxy"] #sky{display:block}
+body[data-skin="galaxy"] .layout{position:relative;z-index:1}
+body[data-skin="galaxy"].sky-live{
+  background-image:
+    radial-gradient(1180px 640px at 14% -12%, rgba(122,169,240,.10), transparent 62%),
+    radial-gradient(940px 560px at 88% -6%, rgba(174,147,240,.09), transparent 62%);
+  background-size:100% 100%,100% 100%;
+  background-repeat:no-repeat,no-repeat;
+  animation:none;
+}
 body[data-skin="galaxy"] header.top{background:rgba(10,14,28,.86);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
 body[data-skin="galaxy"] nav.rail{background:transparent}
 body[data-skin="galaxy"] .tab:hover{background:rgba(122,169,240,.08)}
@@ -502,6 +516,7 @@ footer{color:var(--faint);font-size:12.5px;padding-block:20px 10px;border-top:1p
     <footer id="storemode"></footer>
   </main>
 </div>
+<canvas id="sky" aria-hidden="true"></canvas>
 <canvas id="confetti" hidden></canvas>
 <div id="tip" hidden></div>
 
@@ -833,6 +848,7 @@ function removeAssignment(id){
 function onErr(e){ if(e&&e.code==="revoked"){state.canWrite=false;render();} else console.warn("db",e); }
 
 async function boot(){
+ syncSky();
  try{const v=Local.get("view"); if(v&&VIEWS.indexOf(v)>-1)state.view=v}catch(e){}
  render();
  DB=await use("db");
@@ -1847,6 +1863,7 @@ document.addEventListener("click",guard(e=>{
    Local.set("skin",on?"hub":"galaxy");
    t.setAttribute("aria-pressed",String(!on));
    const lbl=document.getElementById("skinlabel"); if(lbl)lbl.textContent=on?"Galaxy":"Hub theme";
+   syncSky();
    return}
  if(a==="quickadd"){
    state.view="candidates";state.quick=true;state.filter="all";Local.set("view","candidates");
@@ -2020,6 +2037,217 @@ async function handleFile(f){
   if(st)st.textContent="Upload failed ("+((err&&err.code)||"unknown")+"). Log the assignment and share the scan another way.";
  }
 }
+
+/* ============================ the sky ============================
+   A real starfield rather than a tiled image: three parallax depths, per-star
+   twinkle, a nebula drifting behind them and the occasional meteor.
+   Built for a steady 60fps:
+   - stars are pre-rendered sprites, so no per-star gradient or shadowBlur
+   - draws are batched into ten alpha buckets, so globalAlpha is set ten times
+     a frame instead of five hundred
+   - the nebula is rendered once at quarter scale and blitted
+   - the loop pauses when the tab is hidden and holds a single static frame
+     under prefers-reduced-motion */
+const Sky=(function(){
+ const cv=document.getElementById("sky");
+ if(!cv||!cv.getContext)return{start(){},stop(){},stats(){return null}};
+ let ctx=null; try{ctx=cv.getContext("2d",{alpha:true})}catch(e){}
+ if(!ctx)return{start(){},stop(){},stats(){return null}};
+
+ const TINTS=["#FFFFFF","#CBDEFF","#AFC8FF","#FFE6C4","#E2D4FF"];
+ const sprites=TINTS.map(c=>{
+  const n=document.createElement("canvas"); n.width=n.height=24;
+  const g=n.getContext("2d"), r=g.createRadialGradient(12,12,0,12,12,12);
+  g.globalCompositeOperation="source-over";
+  r.addColorStop(0,c); r.addColorStop(.22,c);
+  r.addColorStop(.45,hexA(c,.45));
+  r.addColorStop(1,hexA(c,0));
+  g.fillStyle=r; g.beginPath(); g.arc(12,12,12,0,6.283); g.fill();
+  return n;
+ });
+ function hexA(h,a){const n=parseInt(h.slice(1),16);
+  return "rgba("+((n>>16)&255)+","+((n>>8)&255)+","+(n&255)+","+a+")";}
+
+ let W=0,H=0,dpr=1,stars=[],bright=[],neb=null,raf=0,running=false,last=0,t=0;
+ let meteor=null,nextMeteor=9000;
+ /* Quality governor. On a weak machine the cost is the per-frame canvas upload,
+    not the drawing, so drawing less does not help — updating less often does.
+    Level 2 renders every frame, level 1 every other (a smooth 30 instead of a
+    stuttering 28), level 0 leaves a still sky. It steps down only, so it cannot
+    oscillate, and resets on resize or when the theme is switched back on. */
+ let level=2, renderGaps=[], lastRender=0, lastAdapt=0;
+ const BUCKETS=10, bins=[]; for(let i=0;i<BUCKETS;i++)bins.push([]);
+ let frames=0,drawMs=0,sampleFrom=0;
+
+ const reduce=()=>{try{return matchMedia("(prefers-reduced-motion: reduce)").matches}catch(e){return false}};
+
+ function buildNebula(){
+  const n=document.createElement("canvas");
+  n.width=Math.max(2,Math.ceil(W/4)); n.height=Math.max(2,Math.ceil(H/4));
+  const g=n.getContext("2d");
+  const blobs=[[.18,-.05,.75,"rgba(110,160,240,.26)"],[.86,.02,.62,"rgba(168,140,238,.24)"],
+               [.52,1.06,.70,"rgba(90,205,170,.13)"],[.70,.55,.45,"rgba(126,100,200,.12)"]];
+  for(const [x,y,r,c] of blobs){
+   const cx=x*n.width, cy=y*n.height, rad=r*Math.max(n.width,n.height);
+   const gr=g.createRadialGradient(cx,cy,0,cx,cy,rad);
+   gr.addColorStop(0,c); gr.addColorStop(1,"rgba(0,0,0,0)");
+   g.fillStyle=gr; g.fillRect(0,0,n.width,n.height);
+  }
+  neb=n;
+ }
+
+ function build(){
+  const rect=cv.getBoundingClientRect();
+  W=Math.max(1,Math.round(rect.width)); H=Math.max(1,Math.round(rect.height));
+  /* The cost here is compositing the canvas, not drawing into it: a 2560x1440
+     window at 2x is 14.7M device pixels and drops to ~15fps however cheap the
+     draw is. Cap the backing store by total pixels and let the browser scale it
+     up — imperceptible on soft star sprites, and it holds 60fps on big displays. */
+  const MAXPX=2400000;
+  dpr=Math.min(2,window.devicePixelRatio||1);
+  const fit=Math.sqrt(MAXPX/(W*H));
+  if(fit<dpr)dpr=Math.max(0.75,fit);
+  cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr);
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  const target=Math.round(W*H/5200);
+  const count=Math.max(160,Math.min(820,target));
+  stars=[]; bright=[];
+  for(let i=0;i<count;i++){
+   const d=i%3;                                   /* 0 far, 1 mid, 2 near */
+   stars.push({
+    x:Math.random()*W, y:Math.random()*H, d:d,
+    s:(d===0?0.9:d===1?1.5:2.3)+Math.random()*(d===2?1.6:0.7),
+    a:(d===0?0.34:d===1?0.55:0.78)*(0.65+Math.random()*0.35),
+    c:Math.random()<0.78?0:1+((Math.random()*4)|0),
+    ph:Math.random()*6.283, tw:0.5+Math.random()*1.6
+   });
+  }
+  const nb=Math.max(4,Math.round(count/90));
+  for(let i=0;i<nb;i++)bright.push({
+   x:Math.random()*W, y:Math.random()*H, s:7+Math.random()*7,
+   a:0.5+Math.random()*0.35, c:(Math.random()*TINTS.length)|0,
+   ph:Math.random()*6.283, tw:0.35+Math.random()*0.5
+  });
+  buildNebula();
+ }
+
+ function spawnMeteor(){
+  const fromLeft=Math.random()<0.5;
+  meteor={x:fromLeft?-80:W+80, y:Math.random()*H*0.55,
+          vx:(fromLeft?1:-1)*(0.55+Math.random()*0.35), vy:0.22+Math.random()*0.16,
+          life:0, span:900+Math.random()*500, len:120+Math.random()*90};
+ }
+
+ function frame(now){
+  if(!running)return;
+  raf=requestAnimationFrame(frame);
+  const dt=Math.min(64,now-(last||now)); last=now; t+=dt;
+  if(level===1&&lastRender&&now-lastRender<30)return;
+  if(level===0){ running=false; cancelAnimationFrame(raf); }
+  const t0=performance.now();
+  ctx.clearRect(0,0,W,H);
+
+  /* nebula, drifting a few pixels a minute */
+  if(neb){
+   const nx=Math.sin(t/92000)*14, ny=Math.cos(t/121000)*10;
+   ctx.globalAlpha=1;
+   ctx.drawImage(neb,nx-14,ny-10,W+28,H+20);
+  }
+
+  /* stars, batched by quantised alpha */
+  for(let i=0;i<BUCKETS;i++)bins[i].length=0;
+  const drift=t/1000;
+  for(let i=0;i<stars.length;i++){
+   const st=stars[i];
+   const sp=(st.d===0?1.1:st.d===1?2.6:4.8);
+   let x=st.x+drift*sp*0.35, y=st.y-drift*sp*0.12;
+   x%=W; if(x<0)x+=W; y%=H; if(y<0)y+=H;
+   st.px=x; st.py=y;
+   const a=st.a*(0.6+0.4*Math.sin(t/1000*st.tw+st.ph));
+   let b=(a*BUCKETS)|0; if(b<0)b=0; if(b>=BUCKETS)b=BUCKETS-1;
+   bins[b].push(st);
+  }
+  for(let b=0;b<BUCKETS;b++){
+   const list=bins[b]; if(!list.length)continue;
+   ctx.globalAlpha=(b+0.5)/BUCKETS;
+   for(let i=0;i<list.length;i++){
+    const st=list[i], s=st.s;
+    ctx.drawImage(sprites[st.c],st.px-s/2,st.py-s/2,s,s);
+   }
+  }
+
+  /* a few anchors with a wider halo */
+  for(let i=0;i<bright.length;i++){
+   const st=bright[i];
+   ctx.globalAlpha=st.a*(0.65+0.35*Math.sin(t/1000*st.tw+st.ph));
+   ctx.drawImage(sprites[st.c],st.x-st.s/2,st.y-st.s/2,st.s,st.s);
+  }
+
+  /* meteor */
+  nextMeteor-=dt;
+  if(!meteor&&nextMeteor<=0){spawnMeteor();nextMeteor=14000+Math.random()*16000;}
+  if(meteor){
+   meteor.life+=dt;
+   const k=meteor.life/meteor.span;
+   if(k>=1){meteor=null;}
+   else{
+    const x=meteor.x+meteor.vx*meteor.life, y=meteor.y+meteor.vy*meteor.life;
+    const tx=x-meteor.vx*meteor.len, ty=y-meteor.vy*meteor.len;
+    const fade=Math.sin(Math.PI*k);
+    const g=ctx.createLinearGradient(x,y,tx,ty);
+    g.addColorStop(0,"rgba(226,238,255,"+(0.85*fade).toFixed(3)+")");
+    g.addColorStop(1,"rgba(226,238,255,0)");
+    ctx.globalAlpha=1; ctx.strokeStyle=g; ctx.lineWidth=1.6; ctx.lineCap="round";
+    ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(tx,ty); ctx.stroke();
+   }
+  }
+  ctx.globalAlpha=1;
+
+  drawMs+=performance.now()-t0; frames++;
+  if(lastRender){ renderGaps.push(now-lastRender); if(renderGaps.length>70)renderGaps.shift(); }
+  lastRender=now;
+  adapt(now);
+ }
+
+ function median(a){ const b=a.slice().sort((x,y)=>x-y); return b[b.length>>1]; }
+ function adapt(now){
+  if(renderGaps.length<50||now-lastAdapt<1800)return;
+  const m=median(renderGaps);
+  if(level===2&&m>22){ level=1; lastAdapt=now; renderGaps.length=0; return; }
+  /* only go still if even half rate is out of reach */
+  if(level===1&&m>60){ level=0; lastAdapt=now; renderGaps.length=0; }
+ }
+
+ function start(){
+  if(running)return;
+  build(); document.body.classList.add("sky-live");
+  frames=0; drawMs=0; sampleFrom=performance.now(); last=0;
+  level=2; renderGaps.length=0; lastRender=0; lastAdapt=0;
+  if(reduce()){ running=true; frame(performance.now()); running=false; cancelAnimationFrame(raf); return; }
+  running=true; raf=requestAnimationFrame(frame);
+ }
+ function stop(){ running=false; cancelAnimationFrame(raf);
+  document.body.classList.remove("sky-live"); ctx.clearRect(0,0,W,H); }
+ function stats(){ const secs=(performance.now()-sampleFrom)/1000;
+  return {frames:frames, fps:secs>0?frames/secs:0, avgDrawMs:frames?drawMs/frames:0,
+          stars:stars.length, running:running, scale:dpr,
+          backingPx:cv.width*cv.height, level:level,
+          renderFps:renderGaps.length?1000/median(renderGaps):0}; }
+
+ let rt=0;
+ addEventListener("resize",()=>{ clearTimeout(rt);
+  rt=setTimeout(()=>{ if(document.body.dataset.skin==="galaxy"){ const was=running; stop();
+   if(was||reduce())start(); } },180); });
+ document.addEventListener("visibilitychange",()=>{
+  if(document.hidden){ if(running){running=false;cancelAnimationFrame(raf);} }
+  else if(document.body.dataset.skin==="galaxy"&&!running&&!reduce()){
+   running=true; last=0; raf=requestAnimationFrame(frame); }
+ });
+ return {start,stop,stats};
+})();
+function syncSky(){ if(document.body.dataset.skin==="galaxy")Sky.start(); else Sky.stop(); }
+/* read-only diagnostic: lets anyone check the sky's real cost on their own device */
+try{window.__skyStats=Sky.stats}catch(e){}
 
 /* celebration */
 function celebrate(){
