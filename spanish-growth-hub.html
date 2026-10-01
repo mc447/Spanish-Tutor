@@ -72,14 +72,52 @@ a{color:var(--azulejo)}
 
 /* ---------- stat rail ---------- */
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:10px;padding-block:16px}
-.stat{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 13px 11px;min-width:0;overflow:hidden}
+.stat{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 13px 11px;min-width:0;overflow:hidden;width:100%;text-align:left;font:inherit;color:inherit;cursor:pointer;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
+.stat:hover{transform:translateY(-2px);border-color:var(--accent,var(--azulejo));box-shadow:var(--shadow)}
+.stat .n{transition:color .3s ease}
+.stat.bump .n{animation:bump .6s cubic-bezier(.2,1.4,.4,1)}
+@keyframes bump{0%{transform:scale(1)}35%{transform:scale(1.28)}100%{transform:scale(1)}}
 .stat::after{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent,var(--line-2))}
+.stat .n,.stat .k,.stat .how{display:block}
 .stat .n{font-family:var(--display);font-weight:800;font-size:30px;line-height:1;font-variant-numeric:tabular-nums;color:var(--accent,var(--ink))}
 .stat .k{font-family:var(--data);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2);margin-top:6px}
 .stat .how{font-size:11.5px;color:var(--ink-3);margin-top:3px;line-height:1.35}
 .stat.live .n{text-shadow:0 0 18px color-mix(in srgb,var(--accent) 45%,transparent)}
 
 /* ---------- tabs ---------- */
+/* search progress */
+.progress{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:13px 15px;margin-bottom:18px}
+.progress .ph{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline;margin-bottom:9px}
+.progress .ph b{font-family:var(--display);font-size:14.5px;font-weight:800}
+.progress .ph span{font-family:var(--data);font-size:11px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.track{height:10px;border-radius:5px;background:var(--surface-3);overflow:hidden;position:relative}
+.track i{display:block;height:100%;border-radius:5px;background:linear-gradient(90deg,var(--azulejo),var(--marigold));box-shadow:0 0 16px color-mix(in srgb,var(--marigold) 60%,transparent);transition:width .8s cubic-bezier(.2,.8,.2,1)}
+.track::after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent 35%,rgba(255,255,255,.4) 50%,transparent 65%);background-size:260% 100%;animation:sheen2 3.4s linear infinite;pointer-events:none}
+@keyframes sheen2{to{background-position:-260% 0}}
+.steps{display:flex;gap:10px;margin-top:9px;flex-wrap:wrap}
+.steps span{font-family:var(--data);font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-3)}
+.steps span.done{color:var(--azulejo)}
+.steps span.now{color:var(--marigold);font-weight:600}
+.steps span.now::before{content:"\25CF ";animation:pulse 1.5s ease-in-out infinite;display:inline-block}
+/* stars */
+.stars{display:inline-flex;gap:1px;vertical-align:-2px;margin-right:3px}
+.stars svg{width:11px;height:11px;display:block}
+.s-on{fill:var(--marigold)} .s-off{fill:var(--surface-3)}
+/* filters */
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0 16px}
+.filters button{background:var(--surface-2);border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-family:var(--data);font-size:11.5px;cursor:pointer;color:var(--ink-2)}
+.filters button:hover{border-color:var(--azulejo)}
+.filters button[aria-pressed="true"]{background:var(--azulejo);border-color:var(--azulejo);color:var(--on-accent);font-weight:600}
+/* status change */
+@keyframes flashmove{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--marigold) 75%,transparent);border-color:var(--marigold)}100%{box-shadow:0 0 0 16px transparent;border-color:var(--line)}}
+.pcard.moved,.ccard.moved{animation:flashmove 1s ease-out}
+@keyframes slidein{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.pcard{animation:slidein .3s ease-out}
+/* chart tooltip */
+#tip{position:fixed;z-index:80;background:var(--ink);color:var(--paper);font-family:var(--data);font-size:11px;padding:5px 9px;border-radius:6px;pointer-events:none;white-space:nowrap;box-shadow:var(--shadow)}
+.spark rect[data-tip]{cursor:crosshair}
+.spark .hv{opacity:0;transition:opacity .12s}
+.spark g:hover .hv{opacity:1}
 .tabs{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--line);margin-bottom:20px}
 .tabs::-webkit-scrollbar{display:none}
 .tab{flex:0 0 auto;background:none;border:0;border-bottom:3px solid transparent;padding:10px 13px;cursor:pointer;font-family:var(--display);font-weight:600;font-size:14.5px;color:var(--ink-2);white-space:nowrap}
@@ -302,6 +340,7 @@ footer{color:var(--ink-3);font-size:12px;padding-block:22px 34px;border-top:1px 
 
 <div class="wrap">
   <div class="stats" id="stats"></div>
+  <div id="progress"></div>
   <div class="tabs" role="tablist" id="tabs"></div>
   <div id="views"></div>
   <footer>
@@ -310,6 +349,7 @@ footer{color:var(--ink-3);font-size:12px;padding-block:22px 34px;border-top:1px 
   </footer>
 </div>
 <canvas id="confetti" hidden></canvas>
+<div id="tip" hidden></div>
 
 <script>
 (function(){
@@ -485,7 +525,36 @@ const Local={
  pre(p){try{return Object.keys(localStorage).filter(k=>k.indexOf("sgh:"+p)===0)}catch(e){return[]}}
 };
 
-const state={candidates:{},assignments:{},search:null,learning:null,board:null,tab:"command",open:null,mode:"loading",canWrite:true};
+const state={candidates:{},assignments:{},search:null,learning:null,board:null,tab:"command",open:null,mode:"loading",canWrite:true,filter:"all",justMoved:null};
+
+const MILESTONES=[
+ {id:"first",      hit:m=>m.found>=1,       msg:"First tutor in the pipeline \u2014 the search is live."},
+ {id:"three",      hit:m=>m.found>=3,       msg:"Three tutors sourced \u2014 enough to compare properly."},
+ {id:"screened",   hit:(m,L)=>L.some(c=>unknowns(c)===0), msg:"First tutor fully screened \u2014 all 18 criteria have evidence."},
+ {id:"interviewed",hit:m=>m.interviewed>=1, msg:"First interview logged."},
+ {id:"trial",      hit:m=>m.trial>=1,       msg:"First trial session under way."},
+ {id:"finalist",   hit:m=>m.ready>=1,       msg:"First finalist is with Mariaelena."},
+ {id:"shortlist",  hit:m=>m.finalists>=2,   msg:"Finalist group ready \u2014 time to tell Cherry."},
+ {id:"hired",      hit:m=>m.hired>=1,       msg:"Tutor hired. Lucas starts learning."}
+];
+const FILTERS=[["all","All"],["qualified","Qualified"],["interviewed","Interviewed"],["flagged","Red flags"],["gaps","Needs screening"]];
+function matchFilter(c){
+ switch(state.filter){
+  case "qualified": return isQualified(c);
+  case "interviewed": return isInterviewed(c);
+  case "flagged": return flagCount(c)>0;
+  case "gaps": return unknowns(c)>0;
+  default: return true;
+ }
+}
+function checkMilestones(){
+ const b=state.board||(state.board={});
+ const done=b.milestones||(b.milestones={});
+ const m=metrics(),L=list();
+ let fired=null;
+ for(const ms of MILESTONES){ if(!done[ms.id]&&ms.hit(m,L)){done[ms.id]=true;fired=ms.msg} }
+ if(fired){saveMeta("board",0);celebrate();toast(fired)}
+}
 
 let DB=null,ASSETS=null,USER=null,MYID=null;
 const chain=new Map();
@@ -620,16 +689,17 @@ setInterval(tick,30000);
 function renderStats(){
  const m=metrics(),h=hired();
  const tiles=[
-  ["Tutors found",m.found,"var(--azulejo)","everyone added to the pipeline"],
-  ["Qualified",m.qualified,"var(--verde)","6 core must-haves assessed, none weak, 4+ strong"],
-  ["Interviewed",m.interviewed,"var(--azulejo)","8 of 11 questions logged, or past interview"],
-  ["In trial",m.trial,"var(--marigold)","trial session booked or under way"],
-  ["Finalists",m.finalists,"var(--violeta)","at Mariaelena Review or beyond, not passed"],
-  ["Ready for Mariaelena",m.ready,"var(--violeta)","waiting on her decision right now"],
-  ["Hired",m.hired,"var(--verde)",h?h.name:"nobody yet"]
+  ["Tutors found",m.found,"var(--azulejo)","everyone added to the pipeline","candidates"],
+  ["Qualified",m.qualified,"var(--verde)","6 core must-haves assessed, none weak, 4+ strong","candidates"],
+  ["Interviewed",m.interviewed,"var(--azulejo)","8 of 11 questions logged, or past interview","candidates"],
+  ["In trial",m.trial,"var(--marigold)","trial session booked or under way","pipeline"],
+  ["Finalists",m.finalists,"var(--violeta)","at Mariaelena Review or beyond, not passed","mariaelena"],
+  ["Ready for Mariaelena",m.ready,"var(--violeta)","waiting on her decision right now","mariaelena"],
+  ["Hired",m.hired,"var(--verde)",h?h.name:"nobody yet",h?"learning":"pipeline"]
  ];
- $("#stats").innerHTML=tiles.map(([k,n,a,how])=>
-  `<div class="stat${n>0?" live":""}" style="--accent:${a}"><div class="n">${n}</div><div class="k">${esc(k)}</div><div class="how">${esc(how)}</div></div>`
+ const prev=lastStats; lastStats=tiles.map(t=>t[1]);
+ $("#stats").innerHTML=tiles.map(([k,n,a,how,go],i)=>
+  `<button class="stat${n>0?" live":""}${prev&&prev[i]!==n?" bump":""}" style="--accent:${a}" data-act="tab" data-id="${go}" title="Go to ${esc(go)}"><span class="n">${n}</span><span class="k">${esc(k)}</span><span class="how">${esc(how)}</span></button>`
  ).join("");
 }
 function renderTabs(){
@@ -646,11 +716,37 @@ function renderTabs(){
  ).join("");
 }
 
+let softT=null;
+function softRender(){clearTimeout(softT);softT=setTimeout(render,700)}
+
+function stars(r){
+ const n=Number(r); if(!(n>0))return "";
+ const full=Math.round(Math.min(5,n));
+ let out='<span class="stars" role="img" aria-label="Upwork rating '+esc(r)+' out of 5">';
+ for(let i=1;i<=5;i++)out+='<svg viewBox="0 0 20 20" aria-hidden="true"><path class="'+(i<=full?"s-on":"s-off")+'" d="M10 1.6l2.5 5.2 5.7.8-4.1 4 1 5.7-5.1-2.7-5.1 2.7 1-5.7-4.1-4 5.7-.8z"/></svg>';
+ return out+"</span>";
+}
+
+function renderProgress(){
+ const L=list(), far=L.length?Math.max.apply(null,L.map(ix)):-1;
+ const pct=far<0?0:Math.round((far+1)/STAGES.length*100);
+ const phase=far<0?"Not started":STAGES[far].label;
+ const note=far<0?"Post the job and run the talent searches to begin."
+   :far>=6?"Tutoring is live."
+   :"Furthest any tutor has reached.";
+ $("#progress").innerHTML=`<div class="progress">
+   <div class="ph"><b>Search progress &middot; ${esc(phase)}</b><span>${pct}% &middot; ${esc(note)}</span></div>
+   <div class="track"><i style="width:${pct}%"></i></div>
+   <div class="steps">${STAGES.map((st,i)=>`<span class="${i<far?"done":i===far?"now":""}">${esc(st.label)}</span>`).join("")}</div>
+ </div>`;
+}
+
+let lastStats=null;
 function render(){
  const a=document.activeElement, fid=a&&a.id?a.id:null;
  const ss=a&&typeof a.selectionStart==="number"?a.selectionStart:null;
  const se=a&&typeof a.selectionEnd==="number"?a.selectionEnd:null;
- renderStats(); renderTabs(); tick();
+ renderStats(); renderProgress(); renderTabs(); tick();
  const v=$("#views");
  v.innerHTML=
    state.tab==="command"?viewCommand():
@@ -743,7 +839,7 @@ function viewPipeline(){
 }
 function pcard(c){
  const u=unknowns(c),f=flagCount(c);
- return `<div class="pcard" draggable="true" data-card="${c.id}">
+ return `<div class="pcard${state.justMoved===c.id?" moved":""}" draggable="true" data-card="${c.id}">
   <b data-act="open" data-id="${c.id}">${esc(c.name||"Unnamed tutor")}</b>
   <div class="meta">
    ${c.rate?`<span>$${esc(c.rate)}/hr</span>`:""}
@@ -762,14 +858,19 @@ function pcard(c){
 function viewCandidates(){
  const L=list();
  if(!L.length)return emptyState();
+ const shown=L.filter(matchFilter);
+ const count=f=>{const k=state.filter;state.filter=f;const n=L.filter(matchFilter).length;state.filter=k;return n};
  return `<div class="panel"><h2>Candidates <span class="tagline">${L.length} logged &middot; evidence, not vibes</span></h2>
-  <div class="btnrow" style="margin:12px 0 16px"><button class="btn" data-act="newcand">Add a tutor</button></div>
-  <div class="cards">${L.map(ccard).join("")}</div></div>`;
+  <div class="filters">${FILTERS.map(([id,lab])=>`<button data-act="filter" data-id="${id}" aria-pressed="${state.filter===id}">${esc(lab)} ${count(id)}</button>`).join("")}</div>
+  <div class="btnrow" style="margin:0 0 16px"><button class="btn" data-act="newcand">Add a tutor</button></div>
+  ${shown.length?`<div class="cards">${shown.map(ccard).join("")}</div>`
+    :`<p class="sub">No tutor matches that filter yet. <button class="btn sm ghost" data-act="filter" data-id="all">Show all ${L.length}</button></p>`}
+  </div>`;
 }
 function ccard(c){
  const u=unknowns(c),f=flagCount(c),qa=isQualified(c),done=SCORECARD.length-u;
  const t=trialAvg(c);
- return `<button class="ccard" data-act="open" data-id="${c.id}">
+ return `<button class="ccard${state.justMoved===c.id?" moved":""}" data-act="open" data-id="${c.id}">
   <div class="chead">
    <span class="av" style="--avbg:${avatarColor(c.name)}">${esc(initials(c.name))}</span>
    <span class="who"><b>${esc(c.name||"Unnamed tutor")}</b><span>${esc([c.location,c.timezone].filter(Boolean).join(" · "))||"location unknown"}</span></span>
@@ -781,6 +882,7 @@ function ccard(c){
    ${f?`<span class="chip bad">${f} red flag${f>1?"s":""}</span>`:""}
    ${u?`<span class="chip unk">${u} unknown</span>`:`<span class="chip ok">fully screened</span>`}
    ${t?`<span class="chip">trial ${t.toFixed(1)}/5</span>`:""}
+   ${c.upworkRating?`<span class="chip">${stars(c.upworkRating)}${esc(c.upworkRating)}${c.completedJobs?" \u00b7 "+esc(c.completedJobs)+" jobs":""}</span>`:""}
   </div>
   <div class="meterrow"><span>screened</span><span class="meter"><i style="width:${Math.round(done/SCORECARD.length*100)}%"></i></span><span>${done}/${SCORECARD.length}</span></div>
   <div class="meterrow"><span>interview</span><span class="meter"><i style="width:${Math.round(asked(c)/QUESTIONS.length*100)}%"></i></span><span>${asked(c)}/${QUESTIONS.length}</span></div>
@@ -833,7 +935,7 @@ function finalist(c){
    <div class="fact"><div class="k">Availability</div><div class="v">${esc(c.availability||"unknown")}</div></div>
    <div class="fact"><div class="k">Earliest start</div><div class="v">${esc(c.earliestStart||"unknown")}</div></div>
    <div class="fact"><div class="k">Years tutoring</div><div class="v">${esc(c.yearsTutoring||"unknown")}</div></div>
-   <div class="fact"><div class="k">Upwork history</div><div class="v">${esc([c.upworkRating?c.upworkRating+"★":"",c.completedJobs?c.completedJobs+" jobs":""].filter(Boolean).join(" · ")||"unknown")}</div></div>
+   <div class="fact"><div class="k">Upwork history</div><div class="v">${(c.upworkRating||c.completedJobs)?`${stars(c.upworkRating)}${esc([c.upworkRating,c.completedJobs?c.completedJobs+" jobs":""].filter(Boolean).join(" \u00b7 "))}`:"unknown"}</div></div>
    <div class="fact"><div class="k">High-school Spanish</div><div class="v">${esc(c.hsExperience||"unknown")}</div></div>
    <div class="fact"><div class="k">Credentials</div><div class="v">${esc(c.credentials||"unknown")}</div></div>
    <div class="fact"><div class="k">Time zone</div><div class="v">${esc(c.timezone||"unknown")}</div></div>
@@ -970,11 +1072,14 @@ function spark(vals,label){
  const X=i=>pad+i*(w-2*pad)/(n-1), Y=v=>h-pad-(v/5)*(h-2*pad);
  const line=vals.map((v,i)=>(i?"L":"M")+X(i).toFixed(1)+" "+Y(v).toFixed(1)).join(" ");
  const area=line+" L"+X(n-1).toFixed(1)+" "+(h-pad)+" L"+X(0).toFixed(1)+" "+(h-pad)+" Z";
+ const band=(w-2*pad)/(n-1);
+ const hits=vals.map((v,i)=>`<g><rect x="${Math.max(0,X(i)-band/2).toFixed(1)}" y="0" width="${band.toFixed(1)}" height="${h}" fill="transparent" data-tip="${esc(label)} &middot; week ${i+1}: ${v}/5 &mdash; ${esc(LEVEL_NAMES[v])}"/><circle class="hv" cx="${X(i).toFixed(1)}" cy="${Y(v).toFixed(1)}" r="3" fill="var(--marigold)" stroke="var(--surface)" stroke-width="1.6"/></g>`).join("");
  return `<svg class="spark" viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(label)} by week, out of 5: ${vals.join(", ")}">
    <line x1="${pad}" y1="${Y(0)}" x2="${w-pad}" y2="${Y(0)}" stroke="var(--line)" stroke-width="1"/>
    <path d="${area}" fill="var(--azulejo-soft)"/>
    <path d="${line}" fill="none" stroke="var(--azulejo)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
    <circle cx="${X(n-1).toFixed(1)}" cy="${Y(vals[n-1]).toFixed(1)}" r="3.2" fill="var(--azulejo)" stroke="var(--surface)" stroke-width="1.8"/>
+   ${hits}
  </svg>`;
 }
 function conjugate(raw){
@@ -1121,12 +1226,14 @@ function setStage(id,stage){
  const c=state.candidates[id]; if(!c)return;
  const was=c.stage; c.stage=stage;
  saveCandidate(c,0);
- if(stage==="hired"&&was!=="hired"){celebrate();toast(c.name+" is hired — the Learning tab is open.");state.tab="learning"}
- render();
+ if(stage!==was){state.justMoved=id;clearTimeout(movedT);movedT=setTimeout(()=>{state.justMoved=null;render()},1100)}
+ if(stage==="hired"&&was!=="hired"){toast(c.name+" is hired — the Learning tab is open.");state.tab="learning"}
+ render(); checkMilestones();
 }
+let movedT=null;
 function newCandidate(){
  const c={id:uid(),name:"",stage:"sourcing",scores:{},flags:{},interview:{answers:{},asked:{}},trial:{scores:{}},review:{},createdAt:new Date().toISOString()};
- saveCandidate(c,0); state.open=c.id; state.tab="candidates"; render();
+ saveCandidate(c,0); state.open=c.id; state.tab="candidates"; state.filter="all"; render(); checkMilestones();
  setTimeout(()=>{const n=document.getElementById("f-name"); if(n)n.focus()},60);
 }
 function toast(msg){
@@ -1154,17 +1261,18 @@ document.addEventListener("click",e=>{
  if(a==="delcand"){const x=state.candidates[t.dataset.id];if(!x)return;
    if(t.dataset.sure){state.open=null;removeCandidate(x.id);toast("Removed")}
    else{t.dataset.sure="1";t.textContent="Tap again to remove";setTimeout(()=>{if(t.isConnected){delete t.dataset.sure;t.textContent="Remove tutor"}},3200)} return}
- if(a==="score"&&c){const s=t.dataset.s;c.scores=c.scores||{};c.scores[s]=Object.assign({e:""},c.scores[s],{v:t.dataset.v});saveCandidate(c,0);render();return}
+ if(a==="filter"){state.filter=t.dataset.id;render();return}
+ if(a==="score"&&c){const s=t.dataset.s;c.scores=c.scores||{};c.scores[s]=Object.assign({e:""},c.scores[s],{v:t.dataset.v});saveCandidate(c,0);render();checkMilestones();return}
  if(a==="trial"&&c){const k=t.dataset.t,n=Number(t.dataset.n);c.trial=c.trial||{};c.trial.scores=c.trial.scores||{};
-   c.trial.scores[k]=c.trial.scores[k]===n?0:n;saveCandidate(c,0);render();return}
+   c.trial.scores[k]=c.trial.scores[k]===n?0:n;saveCandidate(c,0);render();checkMilestones();return}
  if(a==="decide"){const x=state.candidates[t.dataset.id];if(!x)return;
    const d=t.dataset.d;
    x.review=Object.assign({},x.review,{decision:d,at:new Date().toISOString(),by:MYID||""});
    if(d==="approve")x.stage="trial";
    if(d==="select"){x.stage="hired"}
    saveCandidate(x,0);
-   if(d==="select"){celebrate();toast(x.name+" selected — the Learning tab is open.");state.tab="learning"}
-   render(); return}
+   if(d==="select"){toast(x.name+" selected — the Learning tab is open.");state.tab="learning"}
+   render(); checkMilestones(); return}
  if(a==="level"){const L=state.learning||(state.learning={});L.levels=L.levels||{};
    const s=t.dataset.s,n=Number(t.dataset.n);
    L.levels[s]=L.levels[s]===n?n-1:n; saveMeta("learning",0); render(); return}
@@ -1189,9 +1297,9 @@ document.addEventListener("click",e=>{
 document.addEventListener("change",e=>{
  const t=e.target.closest("[data-act]"); if(!t)return;
  const a=t.dataset.act,c=cur();
- if(a==="flag"&&c){c.flags=c.flags||{};c.flags[t.dataset.f]=t.checked;saveCandidate(c,0);render();return}
+ if(a==="flag"&&c){c.flags=c.flags||{};c.flags[t.dataset.f]=t.checked;saveCandidate(c,0);render();checkMilestones();return}
  if(a==="askq"&&c){c.interview=c.interview||{answers:{},asked:{}};c.interview.asked=c.interview.asked||{};
-   c.interview.asked["q"+t.dataset.n]=t.checked;saveCandidate(c,0);render();return}
+   c.interview.asked["q"+t.dataset.n]=t.checked;saveCandidate(c,0);render();checkMilestones();return}
  if(a==="stage"){setStage(t.dataset.id,t.value);return}
  if(a==="board"){const b=state.board||(state.board={});const k=t.dataset.k;b[k]=b[k]||{};b[k][t.dataset.i]=t.checked;saveMeta("board",0);render();return}
  if(a==="file"){handleFile(t.files&&t.files[0]);return}
@@ -1200,17 +1308,30 @@ document.addEventListener("change",e=>{
 document.addEventListener("input",e=>{
  const t=e.target.closest("[data-act]"); if(!t)return;
  const a=t.dataset.act,c=cur();
- if(a==="cf"&&c){c[t.dataset.k]=t.value;saveCandidate(c);return}
- if(a==="ev"&&c){const s=t.dataset.s;c.scores=c.scores||{};c.scores[s]=Object.assign({v:"unknown"},c.scores[s],{e:t.value});saveCandidate(c);return}
+ if(a==="cf"&&c){c[t.dataset.k]=t.value;saveCandidate(c);softRender();return}
+ if(a==="ev"&&c){const s=t.dataset.s;c.scores=c.scores||{};c.scores[s]=Object.assign({v:"unknown"},c.scores[s],{e:t.value});saveCandidate(c);softRender();return}
  if(a==="qa"&&c){c.interview=c.interview||{answers:{},asked:{}};c.interview.answers=c.interview.answers||{};
-   c.interview.answers["q"+t.dataset.n]=t.value;saveCandidate(c);return}
- if(a==="tf"&&c){c.trial=c.trial||{scores:{}};c.trial[t.dataset.k]=t.value;saveCandidate(c);return}
+   c.interview.answers["q"+t.dataset.n]=t.value;saveCandidate(c);softRender();return}
+ if(a==="tf"&&c){c.trial=c.trial||{scores:{}};c.trial[t.dataset.k]=t.value;saveCandidate(c);softRender();return}
  if(a==="learn"){const L=state.learning||(state.learning={});L[t.dataset.k]=t.value;saveMeta("learning");return}
  if(a==="verb"){const L=state.learning||(state.learning={});L.verb=t.value;saveMeta("learning");
    const out=document.getElementById("conjout");if(out)out.innerHTML=conjugate(t.value);return}
 });
 
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&state.open){state.open=null;render()}});
+
+/* chart tooltip */
+const tipEl=()=>document.getElementById("tip");
+function placeTip(e){const el=tipEl();if(!el||el.hidden)return;
+ const r=el.getBoundingClientRect();
+ let x=e.clientX+12,y=e.clientY-r.height-10;
+ if(x+r.width>innerWidth-8)x=e.clientX-r.width-12;
+ if(y<4)y=e.clientY+16;
+ el.style.left=x+"px";el.style.top=y+"px";}
+document.addEventListener("mouseover",e=>{const n=e.target.closest("[data-tip]");if(!n)return;
+ const el=tipEl();if(!el)return;el.innerHTML=n.getAttribute("data-tip");el.hidden=false;placeTip(e)});
+document.addEventListener("mousemove",e=>{const el=tipEl();if(el&&!el.hidden)placeTip(e)});
+document.addEventListener("mouseout",e=>{if(e.target.closest("[data-tip]")){const el=tipEl();if(el)el.hidden=true}});
 
 /* drag and drop */
 let drag=null;
