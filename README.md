@@ -2,13 +2,21 @@
 
 A single-file command center for Lucas's Spanish tutor search, built from Juan's brief.
 
-`spanish-growth-hub.html` is published as a Claude artifact. It covers the whole run:
+`spanish-growth-hub.html` is published as a Claude artifact, built on the **Juan UI/UX
+standard** (reference build: Madera Well Dashboard) so it reads as one family with the
+other Twin Home artifacts: sticky header, left tab rail, cards and status chips, the
+sage/water/clay palette, Source Serif 4 headings over Public Sans.
 
-- **Command** — a sidebar of five sections, one on screen at a time: **Today** (the eight
-  moves plus MC's handoff checklist, with a live done/total pill), **Job post**, **Upwork
-  searches**, **Daily update** (generated from live pipeline counts), and **The mission**
-  (the requirements, and who does what). The chosen section is remembered per viewer;
-  on a phone the sidebar becomes a scrolling row of chips.
+Navigation is one rail in two groups. **Work**: Today, Pipeline, Candidates, Mariaelena,
+Learning. **Reference**: Job post, Upwork searches, Daily update, The mission. Badges show
+live counts (Today's done/total, finalists waiting on Mariaelena) and the chosen
+destination is remembered per viewer.
+
+It covers the whole run:
+
+- **Today** — the eight moves and MC's handoff checklist, under a lead card restating the
+  objective. **Job post**, **Upwork searches**, **Daily update** and **The mission** (the
+  requirements plus who does what) sit under Reference.
 - **Pipeline** — Sourcing → Screening → Interview → Trial Session → Mariaelena Review → Selected → Hired, drag-and-drop on desktop, one-tap advance on touch.
 - **Candidates** — full profile per tutor, an 18-item screening scorecard where every row carries evidence and unknowns stay visibly unknown, the 9 red flags, the 11 interview questions with notes, and the 11-point trial evaluation with Lucas's and Mariaelena's feedback.
 - **Mariaelena** — finalists only, each with strengths, concerns, interview notes and trial results, and four buttons: approve for trial, keep as backup, pass, select tutor.
