@@ -8,7 +8,7 @@
   --line:#D8DDD8; --line-2:#C3CBC3;
   --clay:#8A5A3C; --sand:#E3D3B0; --water:#2F6F8F; --water-soft:#D6E7EF;
   --amber:#B8761A; --amber-soft:#F6E7CC; --ok:#2F7A4F; --ok-soft:#DCEFE3;
-  --danger:#A33A2B; --danger-soft:#F5DEDA; --clay-soft:#EFE2D8; --on-accent:#FFFFFF;
+  --danger:#A33A2B; --danger-soft:#F5DEDA; --clay-soft:#EFE2D8; --on-accent:#FFFFFF; --plum:#6B4A7A; --plum-soft:#EAE1F1;
   --shadow:0 1px 2px rgba(31,43,47,.06); --pop:0 12px 32px rgba(31,43,47,.16);
   --serif:"Source Serif 4", Georgia, serif;
   --sans:"Public Sans", system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
@@ -20,7 +20,7 @@
   --line:#313C3F; --line-2:#3E4A4D;
   --clay:#C98E68; --sand:#4A3F2C; --water:#6FB2D2; --water-soft:#1E3440;
   --amber:#E3A54A; --amber-soft:#3A2E1A; --ok:#6CC08F; --ok-soft:#1C3325;
-  --danger:#E4826F; --danger-soft:#3D2320; --clay-soft:#33251C; --on-accent:#0E1719;
+  --danger:#E4826F; --danger-soft:#3D2320; --clay-soft:#33251C; --on-accent:#0E1719; --plum:#B392C9; --plum-soft:#2C2235;
   --shadow:none; --pop:0 12px 32px rgba(0,0,0,.5);
 }}
 :root[data-theme="dark"]{
@@ -29,7 +29,7 @@
   --line:#313C3F; --line-2:#3E4A4D;
   --clay:#C98E68; --sand:#4A3F2C; --water:#6FB2D2; --water-soft:#1E3440;
   --amber:#E3A54A; --amber-soft:#3A2E1A; --ok:#6CC08F; --ok-soft:#1C3325;
-  --danger:#E4826F; --danger-soft:#3D2320; --clay-soft:#33251C; --on-accent:#0E1719;
+  --danger:#E4826F; --danger-soft:#3D2320; --clay-soft:#33251C; --on-accent:#0E1719; --plum:#B392C9; --plum-soft:#2C2235;
   --shadow:none; --pop:0 12px 32px rgba(0,0,0,.5);
 }
 
@@ -101,11 +101,24 @@ main{min-width:0;display:grid;gap:16px;align-content:start}
 .stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
 @media (max-width:1100px){.stats{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media (max-width:560px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
-.stat{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:13px 15px;min-width:0;width:100%;text-align:left;font:inherit;color:inherit;display:block;transition:border-color .18s ease,transform .18s ease}
-.stat:hover{border-color:var(--water);transform:translateY(-1px)}
-.stat .n{display:block;font-family:var(--serif);font-size:30px;font-weight:650;line-height:1.1;font-variant-numeric:tabular-nums;color:var(--accent,var(--ink))}
-.stat .k{display:block;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-top:3px}
-.stat .how{display:block;font-size:13px;color:var(--faint);margin-top:3px;line-height:1.4}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:13px 15px;min-width:0;width:100%;text-align:left;font:inherit;color:inherit;display:block;
+  transition:background-color .35s ease,border-color .25s ease,transform .18s ease,box-shadow .25s ease}
+.stat:hover{transform:translateY(-2px);box-shadow:var(--pop)}
+.stat .top{display:flex;align-items:center;gap:10px}
+.stat .ic{flex:0 0 auto;width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-size:16px;background:var(--sunk);line-height:1;
+  transition:background-color .35s ease,transform .35s cubic-bezier(.2,1.4,.4,1)}
+.stat .k,.stat .how{display:block}
+.stat .n{font-family:var(--serif);font-size:30px;font-weight:650;line-height:1;font-variant-numeric:tabular-nums;color:var(--faint)}
+.stat .k{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-top:9px}
+.stat .how{font-size:13px;color:var(--faint);margin-top:3px;line-height:1.4}
+/* Colour means progress: a tile stays neutral at zero and lights up once it holds something. */
+.stat.lit{background:var(--tint);border-color:transparent}
+.stat.lit .ic{background:var(--panel);transform:scale(1.05)}
+.stat.lit .n,.stat.lit .k{color:var(--accent)}
+.stat.lit .how{color:var(--muted)}
+.stat.win{background:var(--ok);border-color:transparent;box-shadow:0 0 0 3px var(--ok-soft)}
+.stat.win .n,.stat.win .k,.stat.win .how{color:#fff}
+.stat.win .ic{background:rgba(255,255,255,.22)}
 .stat.bump .n{animation:bump .6s cubic-bezier(.2,1.4,.4,1)}
 @keyframes bump{0%{transform:scale(1)}35%{transform:scale(1.2)}100%{transform:scale(1)}}
 
@@ -878,16 +891,16 @@ setInterval(tick,30000);
 function renderStats(){
  const m=metrics(),h=hired();
  const tiles=[
-  ["Tutors found",m.found,"var(--water)","everyone added to the pipeline","pipeline"],
-  ["Qualified",m.qualified,"var(--ok)","6 core must-haves assessed, none weak, 4+ strong","candidates"],
-  ["Interviewed",m.interviewed,"var(--water)","8 of 11 questions logged, or past interview","candidates"],
-  ["Finalists",m.finalists,"var(--clay)","at Mariaelena Review or beyond, not passed","mariaelena"],
-  ["Ready for Mariaelena",m.ready,"var(--clay)","waiting on her decision right now","mariaelena"],
-  ["Hired",m.hired,"var(--ok)",h?h.name:"nobody yet",h?"learning":"pipeline"]
+  ["Tutors found",m.found,"water","\u{1F50E}","everyone added to the pipeline","pipeline"],
+  ["Qualified",m.qualified,"ok","\u2705","6 core must-haves assessed, none weak, 4+ strong","candidates"],
+  ["Interviewed",m.interviewed,"amber","\u{1F399}\uFE0F","8 of 11 questions logged, or past interview","candidates"],
+  ["Finalists",m.finalists,"plum","\u2B50","at Mariaelena Review or beyond, not passed","mariaelena"],
+  ["Ready for Mariaelena",m.ready,"clay","\u{1F91D}","waiting on her decision right now","mariaelena"],
+  ["Hired",m.hired,"ok","\u{1F3C6}",h?h.name:"nobody yet",h?"learning":"pipeline"]
  ];
  const prev=lastStats; lastStats=tiles.map(t=>t[1]);
- $("#stats").innerHTML=tiles.map(([k,n,a,how,go],i)=>
-  `<button class="stat${n>0?" live":""}${prev&&prev[i]!==n?" bump":""}" style="--accent:${a}" data-act="tab" data-id="${go}" title="Go to ${esc(go)}"><span class="n">${prev?prev[i]:n}</span><span class="k">${esc(k)}</span><span class="how">${esc(how)}</span></button>`
+ $("#stats").innerHTML=tiles.map(([k,n,hue,ic,how,go],i)=>
+  `<button class="stat${n>0?" lit":""}${k==="Hired"&&n>0?" win":""}${prev&&prev[i]!==n?" bump":""}" style="--accent:var(--${hue});--tint:var(--${hue}-soft)" data-act="tab" data-id="${go}" title="Go to ${esc(go)}"><span class="top"><span class="ic" aria-hidden="true">${ic}</span><span class="n">${prev?prev[i]:n}</span></span><span class="k">${esc(k)}</span><span class="how">${esc(how)}</span></button>`
  ).join("");
  if(prev)$("#stats").querySelectorAll(".n").forEach((el,i)=>{if(prev[i]!==tiles[i][1])countUp(el,prev[i],tiles[i][1]);else el.textContent=tiles[i][1]});
 }
