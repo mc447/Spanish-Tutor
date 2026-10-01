@@ -85,6 +85,31 @@ a{color:var(--azulejo)}
 .stat.live .n{text-shadow:0 0 18px color-mix(in srgb,var(--accent) 45%,transparent)}
 
 /* ---------- tabs ---------- */
+/* import */
+.imp{border:1px solid var(--azulejo);border-radius:var(--r);padding:14px;margin-bottom:13px;background:var(--surface)}
+.imp>h3{font-size:14.5px;font-weight:800;display:flex;align-items:center;gap:8px;justify-content:space-between;flex-wrap:wrap}
+.imp textarea{width:100%;min-height:96px;background:var(--surface-2);border:1px solid var(--line-2);border-radius:8px;padding:9px 11px;font-size:13px;resize:vertical;margin-top:9px;line-height:1.45}
+.imp .hint{font-size:12.5px;color:var(--ink-2);margin:6px 0 0}
+.thinking{display:flex;align-items:center;gap:9px;font-family:var(--data);font-size:12px;color:var(--azulejo);padding:10px 0}
+.spin{width:13px;height:13px;border-radius:50%;border:2px solid var(--azulejo-soft);border-top-color:var(--azulejo);animation:spin .8s linear infinite;flex:0 0 auto}
+@keyframes spin{to{transform:rotate(360deg)}}
+.sugg{border-top:1px solid var(--line);margin-top:12px;padding-top:11px}
+.sugg h4{font-family:var(--data);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);margin:0 0 7px}
+.srow{display:grid;grid-template-columns:auto 1fr;gap:8px;padding:7px 0;border-bottom:1px dashed var(--line);align-items:start}
+.srow:last-child{border-bottom:0}
+.srow input[type=checkbox]{width:16px;height:16px;margin-top:3px;accent-color:var(--azulejo)}
+.srow .sv{min-width:0}
+.srow .sk,.srow .sval{display:block}
+.srow .sk{font-family:var(--data);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin-bottom:2px}
+.srow .sval{font-size:13.5px;font-weight:600;overflow-wrap:anywhere}
+.srow q{display:block;font-size:12.5px;color:var(--ink-2);font-style:italic;margin-top:3px;border-left:2px solid var(--line-2);padding-left:8px;overflow-wrap:anywhere}
+.srow .rate{font-family:var(--data);font-size:10.5px;padding:1px 7px;border-radius:4px;margin-left:6px}
+.rate.strong{background:var(--verde-soft);color:var(--verde)}
+.rate.partial{background:var(--marigold-soft);color:var(--marigold)}
+.rate.weak{background:var(--rioja-soft);color:var(--rioja)}
+.leftunknown{font-size:12.5px;color:var(--ink-3);margin-top:10px;line-height:1.5}
+.imperr{background:var(--rioja-soft);color:var(--rioja);border-radius:8px;padding:9px 12px;font-size:13px;margin-top:10px}
+.drop{outline:2px dashed var(--azulejo);outline-offset:3px}
 /* presence */
 .presence{display:flex;align-items:center;gap:7px;min-width:0}
 .pstack{display:flex;flex:0 0 auto}
@@ -525,6 +550,47 @@ To apply, please tell us
 Paid trial session required before we commit to an ongoing schedule.`;
 const IRREGULAR=["ser","estar","ir","tener","hacer","poder","poner","decir","venir","dar","ver","saber","querer","salir","traer","conocer","haber","oir","oír","volver","dormir","pedir","jugar","empezar","pensar","entender","sentir","seguir","contar","perder","cerrar","almorzar","encontrar","recordar","mentir","morir","elegir","construir"];
 
+const IMPORT_FIELDS=[
+ ["name","Name"],["location","Location"],["timezone","Time zone"],["rate","Hourly rate in USD, digits only"],
+ ["englishFluency","English fluency"],["spanishFluency","Spanish fluency"],["yearsTutoring","Years tutoring, digits only"],
+ ["hsExperience","High-school Spanish experience"],["usCurriculum","U.S. curriculum experience"],
+ ["availability","Availability"],["earliestStart","Earliest start date"],["upworkRating","Upwork star rating, digits only"],
+ ["completedJobs","Completed jobs, digits only"],["credentials","Certifications or degrees"],["meeting","Zoom or Google Meet"]
+];
+
+/* The prompt is the quality control. It forbids inference and requires a verbatim
+   quote for every claim, so anything the text does not support simply does not come back. */
+function importPrompt(text){
+ return `You are helping screen a tutor for Lucas, a U.S. high-school student taking Spanish I-III.
+Below is text copied from an Upwork freelancer profile and/or their proposal.
+
+RULES
+- Use ONLY what the text actually states. Never infer, never guess, never use general knowledge.
+- Every claim must carry "quote": a verbatim span of at most 150 characters copied from the text.
+- If you cannot quote it, OMIT it. An omission is correct and useful; a guess is harmful.
+- Do not translate or paraphrase inside "quote". Copy it exactly.
+
+Reply with ONLY this JSON:
+{"fields":{"<fieldId>":{"value":"...","quote":"..."}},
+ "scores":[{"id":"<criterionId>","rating":"strong|partial|weak","quote":"..."}],
+ "flags":[{"id":"<flagId>","quote":"..."}],
+ "whyFit":"one or two sentences, grounded in the text",
+ "strengths":["short line","short line"],
+ "concerns":["short line"]}
+
+fieldId is one of: ${IMPORT_FIELDS.map(f=>f[0]+" ("+f[1]+")").join(", ")}
+
+criterionId is one of: ${SCORECARD.map(x=>x.id+" ("+x.label+")").join(", ")}
+rating: "strong" = direct specific evidence; "partial" = touched on thinly or indirectly;
+"weak" = the text gives evidence AGAINST it. Omit any criterion the text does not address.
+
+flagId is one of: ${FLAGS.map(f=>f.id+" ("+f.label+")").join(", ")}
+Only raise a flag the text genuinely supports. No flag is the normal answer.
+
+TEXT:
+${text}`;
+}
+
 /* ============================ plumbing ============================ */
 const $=s=>document.querySelector(s);
 const C=(typeof window!=="undefined"&&window.claude)?window.claude:null;
@@ -571,7 +637,8 @@ function checkMilestones(){
  if(fired){saveMeta("board",0);celebrate();toast(fired)}
 }
 
-let DB=null,ASSETS=null,USER=null,MYID=null,ROOM=null,COMMENTS=null;
+let DB=null,ASSETS=null,USER=null,MYID=null,ROOM=null,COMMENTS=null,SAMPLE=null,IMGOK=false;
+const imp={open:false,text:"",busy:false,err:"",res:null,pick:{},files:null,ctl:null};
 let peers=[],roomLive=false,roomSettled=false,commentsOff=false;
 const NAMES=new Map();
 
@@ -664,6 +731,11 @@ async function boot(){
  }
  use("assets").then(a=>{ASSETS=a;render()});
  use("comments").then(c=>{COMMENTS=c;render()});
+ use("sample").then(sm=>{
+   SAMPLE=sm; if(!sm)return;
+   sm.limits().then(l=>{IMGOK=!!(l&&l.images);render()}).catch(()=>{});
+   render();
+ });
  use("room").then(r=>{
   ROOM=r; if(!r){roomSettled=true;return}
   r.onPeers(ch=>{
@@ -1213,11 +1285,70 @@ function fld(c,k,label,type,ph){
  const id="f-"+k;
  return `<div class="f"><label for="${id}">${esc(label)}</label><input id="${id}" type="${type||"text"}" data-act="cf" data-k="${k}" value="${esc(c[k]||"")}" placeholder="${esc(ph||"")}"></div>`;
 }
+function importPanel(c){
+ if(!SAMPLE)return "";
+ const L=IMPORT_FIELDS.reduce((m,f)=>(m[f[0]]=f[1],m),{});
+ if(!imp.open) return `<div class="imp"><h3>Fill this in from Upwork
+   <button class="btn sm" data-act="impopen">Paste the profile</button></h3>
+   <p class="hint">Open the tutor's Upwork profile, select all and copy \u2014 or take a screenshot. Claude reads it and fills the form, quoting the line each answer came from. You tick what to keep.</p></div>`;
+ if(imp.busy) return `<div class="imp"><h3>Reading the profile</h3>
+   <div class="thinking"><span class="spin"></span>Claude is reading it \u2014 this usually takes 10 to 40 seconds.</div>
+   <div class="btnrow"><button class="btn ghost sm" data-act="impstop">Stop</button></div></div>`;
+ if(imp.res){
+  const r=imp.res, f=r.fields||{}, sc=Array.isArray(r.scores)?r.scores:[], fl=Array.isArray(r.flags)?r.flags:[];
+  const fk=Object.keys(f).filter(k=>L[k]&&f[k]&&f[k].value);
+  const scv=sc.filter(x=>x&&SCORECARD.some(y=>y.id===x.id)&&["strong","partial","weak"].indexOf(x.rating)>-1);
+  const flv=fl.filter(x=>x&&FLAGS.some(y=>y.id===x.id));
+  const miss=SCORECARD.filter(x=>!scv.some(y=>y.id===x.id));
+  const n=Object.keys(imp.pick).filter(k=>imp.pick[k]).length;
+  const nothing=!fk.length&&!scv.length&&!flv.length&&!r.whyFit;
+  return `<div class="imp"><h3>What Claude found <em style="font-family:var(--data);font-style:normal;font-size:10.5px;color:var(--ink-3)">nothing is saved until you apply it</em></h3>
+   ${nothing?`<p class="hint">Nothing in that text could be quoted against any field. If you pasted a short proposal, try the full profile page instead.</p>`:""}
+   ${fk.length?`<div class="sugg"><h4>Profile</h4>${fk.map(k=>`<div class="srow">
+      <input type="checkbox" id="pk-f-${esc(k)}" data-act="imppick" data-k="f:${esc(k)}" ${imp.pick["f:"+k]?"checked":""}>
+      <label class="sv" for="pk-f-${esc(k)}"><span class="sk">${esc(L[k])}</span><span class="sval">${esc(f[k].value)}</span>
+      ${f[k].quote?`<q>${esc(f[k].quote)}</q>`:`<q style="color:var(--rioja)">no quote given \u2014 check this one</q>`}</label></div>`).join("")}</div>`:""}
+   ${scv.length?`<div class="sugg"><h4>Scorecard \u2014 ${scv.length} of ${SCORECARD.length} criteria</h4>${scv.map(x=>{
+      const lab=(SCORECARD.find(y=>y.id===x.id)||{}).label;
+      return `<div class="srow"><input type="checkbox" id="pk-s-${esc(x.id)}" data-act="imppick" data-k="s:${esc(x.id)}" ${imp.pick["s:"+x.id]?"checked":""}>
+      <label class="sv" for="pk-s-${esc(x.id)}"><span class="sval">${esc(lab)}<span class="rate ${esc(x.rating)}">${esc(x.rating)}</span></span>
+      ${x.quote?`<q>${esc(x.quote)}</q>`:`<q style="color:var(--rioja)">no quote given \u2014 check this one</q>`}</label></div>`}).join("")}</div>`:""}
+   ${flv.length?`<div class="sugg"><h4>Possible red flags \u2014 off by default</h4>${flv.map(x=>{
+      const lab=(FLAGS.find(y=>y.id===x.id)||{}).label;
+      return `<div class="srow"><input type="checkbox" id="pk-r-${esc(x.id)}" data-act="imppick" data-k="r:${esc(x.id)}" ${imp.pick["r:"+x.id]?"checked":""}>
+      <label class="sv" for="pk-r-${esc(x.id)}"><span class="sval">\u{1F6A9} ${esc(lab)}</span>${x.quote?`<q>${esc(x.quote)}</q>`:""}</label></div>`}).join("")}</div>`:""}
+   ${(r.whyFit||r.strengths||r.concerns)?`<div class="sugg"><h4>Write-up</h4>
+     ${r.whyFit?`<div class="srow"><input type="checkbox" id="pk-w" data-act="imppick" data-k="w:whyFit" ${imp.pick["w:whyFit"]?"checked":""}><label class="sv" for="pk-w"><span class="sk">Why this person may be a good fit</span><span class="sval" style="font-weight:400">${esc(r.whyFit)}</span></label></div>`:""}
+     ${Array.isArray(r.strengths)&&r.strengths.length?`<div class="srow"><input type="checkbox" id="pk-st" data-act="imppick" data-k="w:strengths" ${imp.pick["w:strengths"]?"checked":""}><label class="sv" for="pk-st"><span class="sk">Key strengths</span><span class="sval" style="font-weight:400">${esc(r.strengths.join(" \u00b7 "))}</span></label></div>`:""}
+     ${Array.isArray(r.concerns)&&r.concerns.length?`<div class="srow"><input type="checkbox" id="pk-co" data-act="imppick" data-k="w:concerns" ${imp.pick["w:concerns"]?"checked":""}><label class="sv" for="pk-co"><span class="sk">Potential concerns</span><span class="sval" style="font-weight:400">${esc(r.concerns.join(" \u00b7 "))}</span></label></div>`:""}
+   </div>`:""}
+   ${miss.length?`<p class="leftunknown"><b>Left unknown (${miss.length}):</b> ${esc(miss.map(x=>x.label).join(", "))}. The text said nothing you could quote about these, so they stay unknown until you verify them yourself.</p>`:""}
+   <div class="btnrow" style="margin-top:13px">
+    <button class="btn" data-act="impapply"${n?"":" disabled"}>Apply ${n} item${n===1?"":"s"}</button>
+    <button class="btn ghost sm" data-act="impall">${n?"Untick all":"Tick all"}</button>
+    <button class="btn ghost sm" data-act="impreset">Start over</button>
+   </div></div>`;
+ }
+ return `<div class="imp"><h3>Fill this in from Upwork
+   <button class="btn ghost sm" data-act="impreset">Cancel</button></h3>
+  <p class="hint">Paste everything from the tutor's Upwork profile${IMGOK?", or drop a screenshot below":""}. Claude quotes the line behind every answer, and leaves anything it cannot quote as unknown.</p>
+  <textarea id="imp-text" data-act="imptext" placeholder="Paste the profile or proposal here\u2026">${esc(imp.text)}</textarea>
+  <div class="btnrow" style="margin-top:10px">
+   ${IMGOK?`<label class="btn ghost sm" for="imp-img">${imp.files&&imp.files.length?esc(imp.files.length+" screenshot"+(imp.files.length>1?"s":"")+" attached"):"Add a screenshot"}</label>
+     <input id="imp-img" type="file" accept="image/*" multiple hidden data-act="impimg">`:""}
+   <button class="btn" data-act="imprun"${impEnough()?"":" disabled"}>Read it</button>
+  </div>
+  ${impOnlyLink()?`<div class="imperr">That is the link, not the profile. This page cannot open it \u2014 go to that page, select all, copy, and paste the text here instead.</div>`:""}
+  ${imp.err?`<div class="imperr">${esc(imp.err)}</div>`:""}
+  <p class="hint" style="margin-top:9px">A link on its own will not work: this page cannot reach Upwork, and Upwork needs you signed in. Paste or screenshot is the way around it.</p></div>`;
+}
+
 function drawerBody(c){
  const i=c.interview||{answers:{},asked:{}};
  const t=c.trial||{scores:{}};
  const avg=trialAvg(c);
  return `
+ ${importPanel(c)}
  <div class="dsec">
   <h3>Profile <em>${esc(STAGES[ix(c)].label)}</em></h3>
   <div class="f" style="margin:10px 0"><label for="f-stage">Pipeline stage</label>
@@ -1312,6 +1443,88 @@ function drawerBody(c){
  </div>`;
 }
 
+/* ============================ import ============================ */
+/* A URL is not profile text. Strip links before measuring, so pasting the
+   address alone can never arm the button. */
+function impEnough(){
+ if(imp.files&&imp.files.length)return true;
+ return imp.text.replace(/https?:\/\/\S+/g,"").trim().length>60;
+}
+function impOnlyLink(){
+ const t=imp.text.trim();
+ return t.length>0 && /^https?:\/\//.test(t) && t.replace(/https?:\/\/\S+/g,"").trim().length<=60;
+}
+function impReset(){if(imp.ctl)try{imp.ctl.abort()}catch(e){}
+ imp.open=false;imp.text="";imp.busy=false;imp.err="";imp.res=null;imp.pick={};imp.files=null;imp.ctl=null;}
+/* Facts and ratings start ticked; red flags do not - a flag is an accusation and
+   deserves a deliberate tick. */
+function impDefaults(r){
+ const pick={};
+ Object.keys(r.fields||{}).forEach(k=>{if(IMPORT_FIELDS.some(f=>f[0]===k)&&r.fields[k]&&r.fields[k].value)pick["f:"+k]=true});
+ (r.scores||[]).forEach(x=>{if(x&&SCORECARD.some(y=>y.id===x.id))pick["s:"+x.id]=true});
+ (r.flags||[]).forEach(x=>{if(x&&FLAGS.some(y=>y.id===x.id))pick["r:"+x.id]=false});
+ if(r.whyFit)pick["w:whyFit"]=true;
+ if(Array.isArray(r.strengths)&&r.strengths.length)pick["w:strengths"]=true;
+ if(Array.isArray(r.concerns)&&r.concerns.length)pick["w:concerns"]=true;
+ return pick;
+}
+const IMP_ERR={
+ not_granted:"You declined letting this page use Claude, so reading profiles is off for this visit.",
+ sampling_disabled:"Claude is not available on this account, so the reader cannot run.",
+ not_declared:"The reader is no longer available on this hub.",
+ rate_limited:"Too many requests just now, or your Claude usage limit was reached. Try again in a few minutes.",
+ session_expired:"Your Claude session expired. Sign in again, then retry.",
+ refused:"Claude declined to read that text. Try pasting just the profile section.",
+ empty_completion:"Claude returned nothing. Try pasting more of the profile.",
+ invalid_json:"Claude's answer came back malformed. Press Read it again.",
+ prompt_too_large:"That is too much text. Paste the profile overview and work history, not the whole page.",
+ image_rejected:"That image could not be read. Try a PNG or JPEG screenshot under 20 MB.",
+ images_unavailable:"Screenshots are not supported in this view. Paste the text instead.",
+ cancelled:"",
+ upstream_error:"The connection dropped before Claude finished. Press Read it to try again."
+};
+async function runImport(){
+ const c=cur(); if(!c||!SAMPLE)return;
+ imp.busy=true;imp.err="";imp.res=null;render();
+ imp.ctl=new AbortController();
+ const opts={signal:imp.ctl.signal,modelTier:"default"};
+ if(imp.files&&imp.files.length&&IMGOK)opts.images=imp.files;
+ const text=imp.text.trim().slice(0,120000);
+ try{
+  const r=await SAMPLE.json(importPrompt(text||"(no text pasted - read the attached screenshots)"),opts);
+  imp.busy=false;
+  if(!r||typeof r!=="object"||Array.isArray(r)){imp.err="Claude's answer was not in the expected shape. Press Read it again.";render();return}
+  imp.res=r; imp.pick=impDefaults(r); render();
+ }catch(e){
+  imp.busy=false;
+  const code=(e&&e.code)||"upstream_error";
+  if(code==="not_granted"||code==="sampling_disabled"||code==="not_declared"||code==="capability_disabled"||code==="capability_removed"){
+    imp.err=IMP_ERR[code]||"Reading profiles is not available here."; SAMPLE=null; render(); return;
+  }
+  imp.err=IMP_ERR[code]||"That did not work. Press Read it to try again.";
+  render();
+ }
+}
+function applyImport(){
+ const c=cur(), r=imp.res; if(!c||!r)return;
+ let n=0;
+ Object.keys(imp.pick).forEach(k=>{
+  if(!imp.pick[k])return;
+  const kind=k.slice(0,1), id=k.slice(2);
+  if(kind==="f"){const v=(r.fields||{})[id]; if(v&&v.value){c[id]=String(v.value);n++}}
+  else if(kind==="s"){const x=(r.scores||[]).find(y=>y&&y.id===id);
+    if(x){c.scores=c.scores||{};c.scores[id]={v:x.rating,e:String(x.quote||"").slice(0,300)};n++}}
+  else if(kind==="r"){c.flags=c.flags||{};c.flags[id]=true;n++}
+  else if(kind==="w"){
+    if(id==="whyFit"&&r.whyFit){c.whyFit=String(r.whyFit);n++}
+    if(id==="strengths"&&Array.isArray(r.strengths)){c.strengths=r.strengths.map(String).join("\n");n++}
+    if(id==="concerns"&&Array.isArray(r.concerns)){c.concerns=r.concerns.map(String).join("\n");n++}
+  }
+ });
+ saveCandidate(c,0); impReset(); render(); checkMilestones();
+ toast(n+" item"+(n===1?"":"s")+" applied \u2014 the rest stay unknown.");
+}
+
 /* ============================ actions ============================ */
 function cur(){return state.candidates[state.open]}
 function setStage(id,stage){
@@ -1344,8 +1557,8 @@ document.addEventListener("click",e=>{
  const t=e.target.closest("[data-act]"); if(!t)return;
  const a=t.dataset.act, c=cur();
  if(a==="tab"){state.tab=t.dataset.id;render();window.scrollTo({top:0,behavior:"smooth"});return}
- if(a==="open"){state.open=t.dataset.id;drawerScroll=0;render();return}
- if(a==="close"){state.open=null;render();return}
+ if(a==="open"){state.open=t.dataset.id;drawerScroll=0;impReset();render();return}
+ if(a==="close"){state.open=null;impReset();render();return}
  if(a==="newcand"){newCandidate();return}
  if(a==="copy"){copyText(t.dataset.src);return}
  if(a==="startclock"){state.search={startedAt:new Date().toISOString()};saveMeta("search",0);render();toast("Clock started");return}
@@ -1354,6 +1567,13 @@ document.addEventListener("click",e=>{
    if(t.dataset.sure){state.open=null;removeCandidate(x.id);toast("Removed")}
    else{t.dataset.sure="1";t.textContent="Tap again to remove";setTimeout(()=>{if(t.isConnected){delete t.dataset.sure;t.textContent="Remove tutor"}},3200)} return}
  if(a==="filter"){state.filter=t.dataset.id;render();return}
+ if(a==="impopen"){imp.open=true;imp.err="";render();setTimeout(()=>{const n=document.getElementById("imp-text");if(n)n.focus()},60);return}
+ if(a==="impreset"){impReset();render();return}
+ if(a==="imprun"){runImport();return}
+ if(a==="impstop"){if(imp.ctl)try{imp.ctl.abort()}catch(e){} imp.busy=false;render();return}
+ if(a==="impapply"){applyImport();return}
+ if(a==="impall"){const on=!Object.keys(imp.pick).some(k=>imp.pick[k]);
+   Object.keys(imp.pick).forEach(k=>{imp.pick[k]=on});render();return}
  if(a==="nudge"){
    if(!ROOM)return;
    ROOM.emit("nudge",{candidate:t.dataset.id}).then(()=>toast("Nudged everyone with the hub open"))
@@ -1411,11 +1631,20 @@ document.addEventListener("change",e=>{
  if(a==="stage"){setStage(t.dataset.id,t.value);return}
  if(a==="board"){const b=state.board||(state.board={});const k=t.dataset.k;b[k]=b[k]||{};b[k][t.dataset.i]=t.checked;saveMeta("board",0);render();return}
  if(a==="file"){handleFile(t.files&&t.files[0]);return}
+ if(a==="imppick"){imp.pick[t.dataset.k]=t.checked;render();return}
+ if(a==="impimg"){imp.files=t.files&&t.files.length?Array.from(t.files):null;imp.err="";render();return}
 });
 
 document.addEventListener("input",e=>{
  const t=e.target.closest("[data-act]"); if(!t)return;
  const a=t.dataset.act,c=cur();
+ if(a==="imptext"){imp.text=t.value;
+   /* toggle the run button directly: a full re-render on every keystroke would be wasteful */
+   const rb=document.querySelector('[data-act="imprun"]');
+   if(rb)rb.disabled=!impEnough();
+   clearTimeout(timers.get("impl"));
+   timers.set("impl",setTimeout(()=>{if(imp.open&&!imp.busy&&!imp.res)render()},500));
+   return}
  if(a==="cf"&&c){c[t.dataset.k]=t.value;saveCandidate(c);softRender();return}
  if(a==="ev"&&c){const s=t.dataset.s;c.scores=c.scores||{};c.scores[s]=Object.assign({v:"unknown"},c.scores[s],{e:t.value});saveCandidate(c);softRender();return}
  if(a==="qa"&&c){c.interview=c.interview||{answers:{},asked:{}};c.interview.answers=c.interview.answers||{};

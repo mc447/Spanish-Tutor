@@ -10,6 +10,33 @@ A single-file command center for Lucas's Spanish tutor search, built from Juan's
 - **Mariaelena** — finalists only, each with strengths, concerns, interview notes and trial results, and four buttons: approve for trial, keep as backup, pass, select tutor.
 - **Learning** — unlocks on hire. Current unit, upcoming quizzes and tests, vocabulary and grammar, a regular -ar/-er/-ir conjugation frame, weekly progress sparklines across eight skills, the homework upload workflow, and tutor notes.
 
+## Filling a tutor in from Upwork
+
+Open a tutor in the hub and press **Paste the profile**. Paste everything from their
+Upwork profile (or drop a screenshot) and Claude fills the form, quoting the line each
+answer came from. Nothing is saved until you tick it and press Apply.
+
+A profile **link on its own cannot work**, for three separate reasons:
+
+1. The artifact's network is blocked by CSP — it can reach no external host, ever.
+2. Upwork profiles require a signed-in session; an anonymous fetch sees nothing.
+3. The only route that could read a logged-in page is the Claude desktop app's browser,
+   which is owner-only, desktop-only, and whose tool schemas cannot be read at runtime
+   (`describeTool` rejects for `host:` servers), so the call shape would be a guess.
+
+Pasting the link alone is detected and answered with what to do instead.
+
+Design rules the reader follows:
+
+- The prompt forbids inference and requires a verbatim quote under 150 characters for
+  every claim. Anything that cannot be quoted is omitted rather than guessed.
+- Facts and ratings arrive ticked; **red flags arrive unticked**, since a flag is an
+  accusation and deserves a deliberate tick.
+- Criteria the text did not cover are listed explicitly as left unknown, and stay
+  unknown. A tutor is still only "qualified" once all six core must-haves are assessed.
+- Each error code gets its own copy (rate limit, oversized paste, declined consent)
+  rather than one generic failure banner.
+
 ## Working together
 
 The hub is live for whoever has it open at the same time:
@@ -38,4 +65,5 @@ Collections: `candidates`, `assignments`, and the documents `meta/search`, `meta
 
 Capabilities declared: `db`, `user` (profile scope, for names), `assets` (homework
 attachments), `room` (presence, with the `nudge` topic open to Contributors), and
-`comments` in composer-only form so no consent prompt is ever shown.
+`comments` in composer-only form so no consent prompt is ever shown, and `sample`
+(the viewer's own Claude usage) for the Upwork profile reader.
