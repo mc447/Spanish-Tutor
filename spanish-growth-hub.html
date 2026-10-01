@@ -669,7 +669,7 @@ function peerAv(x,small){
 const chain=new Map();
 function q(key,fn){const p=(chain.get(key)||Promise.resolve()).catch(()=>{}).then(fn);chain.set(key,p);return p.catch(e=>{console.warn("write failed",key,e);if(e&&e.code==="invalid_argument"){state.canWrite=false;render();toast("You have view-only access — changes are not saved.")}});}
 const timers=new Map();
-function later(key,fn,ms){clearTimeout(timers.get(key));timers.set(key,setTimeout(()=>q(key,fn),ms||550));}
+function later(key,fn,ms){clearTimeout(timers.get(key));timers.set(key,setTimeout(()=>q(key,fn),ms===undefined?550:ms));}
 
 function saveCandidate(c,ms){
  c.updatedAt=new Date().toISOString();
@@ -1295,10 +1295,9 @@ function importPanel(c){
    <div class="thinking"><span class="spin"></span>Claude is reading it \u2014 this usually takes 10 to 40 seconds.</div>
    <div class="btnrow"><button class="btn ghost sm" data-act="impstop">Stop</button></div></div>`;
  if(imp.res){
-  const r=imp.res, f=r.fields||{}, sc=Array.isArray(r.scores)?r.scores:[], fl=Array.isArray(r.flags)?r.flags:[];
-  const fk=Object.keys(f).filter(k=>L[k]&&f[k]&&f[k].value);
-  const scv=sc.filter(x=>x&&SCORECARD.some(y=>y.id===x.id)&&["strong","partial","weak"].indexOf(x.rating)>-1);
-  const flv=fl.filter(x=>x&&FLAGS.some(y=>y.id===x.id));
+  const r=imp.res, f=r.fields;
+  const fk=IMPORT_FIELDS.map(x=>x[0]).filter(k=>f[k]);
+  const scv=r.scores, flv=r.flags;
   const miss=SCORECARD.filter(x=>!scv.some(y=>y.id===x.id));
   const n=Object.keys(imp.pick).filter(k=>imp.pick[k]).length;
   const nothing=!fk.length&&!scv.length&&!flv.length&&!r.whyFit;
@@ -1443,6 +1442,17 @@ function drawerBody(c){
  </div>`;
 }
 
+/* No action may fail silently: an exception used to stop the handler before
+   render(), which looked exactly like a dead button. */
+function reportBug(err){
+ const msg=(err&&(err.message||err.code))||String(err);
+ try{console.error("Spanish Growth Hub:",err)}catch(e){}
+ if(imp.open||imp.res)imp.err="Something went wrong applying this: "+msg+". Nothing was lost \u2014 send this message to Claude.";
+ try{render()}catch(e){}
+ toast("Something went wrong: "+msg);
+}
+function guard(fn){return function(e){try{fn(e)}catch(err){reportBug(err)}}}
+
 /* ============================ import ============================ */
 /* A URL is not profile text. Strip links before measuring, so pasting the
    address alone can never arm the button. */
@@ -1454,15 +1464,45 @@ function impOnlyLink(){
  const t=imp.text.trim();
  return t.length>0 && /^https?:\/\//.test(t) && t.replace(/https?:\/\/\S+/g,"").trim().length<=60;
 }
+/* Claude's reply is untrusted shape. Normalize ONCE here so the row list, the
+   button count and what apply writes can never disagree: ratings are lowercased
+   and validated, unknown ids dropped, duplicates collapsed, and a string where an
+   array was expected is accepted. */
+function impClean(r){
+ r=(r&&typeof r==="object"&&!Array.isArray(r))?r:{};
+ const txt=v=>(typeof v==="string")?v:(typeof v==="number"||typeof v==="boolean")?String(v):"";
+ const arr=v=>Array.isArray(v)?v.map(txt).map(x=>x.trim()).filter(Boolean):(txt(v).trim()?[txt(v).trim()]:[]);
+ const src=(r.fields&&typeof r.fields==="object"&&!Array.isArray(r.fields))?r.fields:{};
+ const fields={};
+ IMPORT_FIELDS.forEach(f=>{
+  const v=src[f[0]];
+  const val=(v&&typeof v==="object"&&!Array.isArray(v))?txt(v.value).trim():txt(v).trim();
+  if(val)fields[f[0]]={value:val.slice(0,300),quote:((v&&typeof v==="object")?txt(v.quote):"").slice(0,300)};
+ });
+ const seen={},scores=[];
+ (Array.isArray(r.scores)?r.scores:[]).forEach(x=>{
+  if(!x||typeof x!=="object")return;
+  const id=txt(x.id).trim(), rating=txt(x.rating).trim().toLowerCase();
+  if(!SCORECARD.some(y=>y.id===id)||["strong","partial","weak"].indexOf(rating)<0||seen["s"+id])return;
+  seen["s"+id]=1; scores.push({id,rating,quote:txt(x.quote).slice(0,300)});
+ });
+ const flags=[];
+ (Array.isArray(r.flags)?r.flags:[]).forEach(x=>{
+  const id=((x&&typeof x==="object")?txt(x.id):txt(x)).trim();
+  if(!FLAGS.some(y=>y.id===id)||seen["r"+id])return;
+  seen["r"+id]=1; flags.push({id,quote:((x&&typeof x==="object")?txt(x.quote):"").slice(0,300)});
+ });
+ return {fields,scores,flags,whyFit:txt(r.whyFit).trim(),strengths:arr(r.strengths),concerns:arr(r.concerns)};
+}
 function impReset(){if(imp.ctl)try{imp.ctl.abort()}catch(e){}
  imp.open=false;imp.text="";imp.busy=false;imp.err="";imp.res=null;imp.pick={};imp.files=null;imp.ctl=null;}
 /* Facts and ratings start ticked; red flags do not - a flag is an accusation and
    deserves a deliberate tick. */
 function impDefaults(r){
  const pick={};
- Object.keys(r.fields||{}).forEach(k=>{if(IMPORT_FIELDS.some(f=>f[0]===k)&&r.fields[k]&&r.fields[k].value)pick["f:"+k]=true});
- (r.scores||[]).forEach(x=>{if(x&&SCORECARD.some(y=>y.id===x.id))pick["s:"+x.id]=true});
- (r.flags||[]).forEach(x=>{if(x&&FLAGS.some(y=>y.id===x.id))pick["r:"+x.id]=false});
+ Object.keys(r.fields).forEach(k=>{pick["f:"+k]=true});
+ r.scores.forEach(x=>{pick["s:"+x.id]=true});
+ r.flags.forEach(x=>{pick["r:"+x.id]=false});
  if(r.whyFit)pick["w:whyFit"]=true;
  if(Array.isArray(r.strengths)&&r.strengths.length)pick["w:strengths"]=true;
  if(Array.isArray(r.concerns)&&r.concerns.length)pick["w:concerns"]=true;
@@ -1494,7 +1534,7 @@ async function runImport(){
   const r=await SAMPLE.json(importPrompt(text||"(no text pasted - read the attached screenshots)"),opts);
   imp.busy=false;
   if(!r||typeof r!=="object"||Array.isArray(r)){imp.err="Claude's answer was not in the expected shape. Press Read it again.";render();return}
-  imp.res=r; imp.pick=impDefaults(r); render();
+  imp.res=impClean(r); imp.pick=impDefaults(imp.res); render();
  }catch(e){
   imp.busy=false;
   const code=(e&&e.code)||"upstream_error";
@@ -1506,21 +1546,24 @@ async function runImport(){
  }
 }
 function applyImport(){
- const c=cur(), r=imp.res; if(!c||!r)return;
+ const c=cur(), r=imp.res;
+ if(!r){imp.err="Those suggestions are no longer loaded. Press Start over and paste again.";render();return}
+ if(!c){imp.err="This tutor is no longer open. Close and reopen them, then paste again.";render();return}
  let n=0;
  Object.keys(imp.pick).forEach(k=>{
   if(!imp.pick[k])return;
   const kind=k.slice(0,1), id=k.slice(2);
-  if(kind==="f"){const v=(r.fields||{})[id]; if(v&&v.value){c[id]=String(v.value);n++}}
-  else if(kind==="s"){const x=(r.scores||[]).find(y=>y&&y.id===id);
-    if(x){c.scores=c.scores||{};c.scores[id]={v:x.rating,e:String(x.quote||"").slice(0,300)};n++}}
-  else if(kind==="r"){c.flags=c.flags||{};c.flags[id]=true;n++}
+  if(kind==="f"){const v=r.fields[id]; if(v){c[id]=v.value;n++}}
+  else if(kind==="s"){const x=r.scores.find(y=>y.id===id);
+    if(x){c.scores=c.scores||{};c.scores[id]={v:x.rating,e:x.quote};n++}}
+  else if(kind==="r"){if(r.flags.some(y=>y.id===id)){c.flags=c.flags||{};c.flags[id]=true;n++}}
   else if(kind==="w"){
-    if(id==="whyFit"&&r.whyFit){c.whyFit=String(r.whyFit);n++}
-    if(id==="strengths"&&Array.isArray(r.strengths)){c.strengths=r.strengths.map(String).join("\n");n++}
-    if(id==="concerns"&&Array.isArray(r.concerns)){c.concerns=r.concerns.map(String).join("\n");n++}
+    if(id==="whyFit"&&r.whyFit){c.whyFit=r.whyFit;n++}
+    if(id==="strengths"&&r.strengths.length){c.strengths=r.strengths.join("\n");n++}
+    if(id==="concerns"&&r.concerns.length){c.concerns=r.concerns.join("\n");n++}
   }
  });
+ if(!n){imp.err="Nothing was ticked, so nothing changed. Tick a row first, or press Start over.";render();return}
  saveCandidate(c,0); impReset(); render(); checkMilestones();
  toast(n+" item"+(n===1?"":"s")+" applied \u2014 the rest stay unknown.");
 }
@@ -1553,7 +1596,7 @@ async function copyText(id){
  catch(e){const r=document.createRange();r.selectNodeContents(el);const s=getSelection();s.removeAllRanges();s.addRange(r);toast("Press ⌘/Ctrl+C to copy the selected text")}
 }
 
-document.addEventListener("click",e=>{
+document.addEventListener("click",guard(e=>{
  const t=e.target.closest("[data-act]"); if(!t)return;
  const a=t.dataset.act, c=cur();
  if(a==="tab"){state.tab=t.dataset.id;render();window.scrollTo({top:0,behavior:"smooth"});return}
@@ -1620,9 +1663,9 @@ document.addEventListener("click",e=>{
    const WF=["Upload / scan","Tutor reviews","Lesson prepared","Student session","Tutor notes","Progress updated"];
    x.stage=WF[Math.min(WF.indexOf(x.stage||"Upload / scan")+1,WF.length-1)];saveAssignment(x);render();return}
  if(a==="delasg"){removeAssignment(t.dataset.id);return}
-});
+}));
 
-document.addEventListener("change",e=>{
+document.addEventListener("change",guard(e=>{
  const t=e.target.closest("[data-act]"); if(!t)return;
  const a=t.dataset.act,c=cur();
  if(a==="flag"&&c){c.flags=c.flags||{};c.flags[t.dataset.f]=t.checked;saveCandidate(c,0);render();checkMilestones();return}
@@ -1633,9 +1676,9 @@ document.addEventListener("change",e=>{
  if(a==="file"){handleFile(t.files&&t.files[0]);return}
  if(a==="imppick"){imp.pick[t.dataset.k]=t.checked;render();return}
  if(a==="impimg"){imp.files=t.files&&t.files.length?Array.from(t.files):null;imp.err="";render();return}
-});
+}));
 
-document.addEventListener("input",e=>{
+document.addEventListener("input",guard(e=>{
  const t=e.target.closest("[data-act]"); if(!t)return;
  const a=t.dataset.act,c=cur();
  if(a==="imptext"){imp.text=t.value;
@@ -1653,7 +1696,7 @@ document.addEventListener("input",e=>{
  if(a==="learn"){const L=state.learning||(state.learning={});L[t.dataset.k]=t.value;saveMeta("learning");return}
  if(a==="verb"){const L=state.learning||(state.learning={});L.verb=t.value;saveMeta("learning");
    const out=document.getElementById("conjout");if(out)out.innerHTML=conjugate(t.value);return}
-});
+}));
 
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&state.open){state.open=null;render()}});
 
