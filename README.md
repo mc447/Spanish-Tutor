@@ -57,16 +57,21 @@ Design rules the reader follows:
 
 ## Galaxy theme
 
-A ✦ switch in the header swaps the hub's sage ground for a deep indigo sky: two
+Galaxy is the hub's theme. A deep indigo sky: two
 nebula washes, star layers at two depths that drift very slowly, and translucent
 panels so the sky shows through without competing with the text. It is declared on
-`body`, so it overrides whichever theme the viewer's app set on `:root` — it works
-over a light or a dark host alike. The choice is remembered per viewer in browser
+`body`, so it overrides whichever theme the viewer's app set on `:root` — it looks the
+same over a light or a dark host. It is applied by a small inline script before the page
+paints, so nothing flashes first. The ✦ switch in the header drops back to the house
+sage theme for anyone who prefers it; the choice is remembered per viewer in browser
 storage, and the sky holds still under `prefers-reduced-motion`.
 
-All six accents are redefined for it rather than reused, and the contrast is asserted
-rather than eyeballed: body text and headings clear WCAG AAA against the sky, secondary
-text and the dashboard numerals clear AA.
+All six accents are redefined for it rather than reused. Because Galaxy's accents are
+light, text sitting *on* an accent fill takes `--on-accent` rather than assuming white:
+selected scorecard ratings, trial scores, the primary button, the filled Hired tile, lit
+milestone badges and chosen decision buttons. Contrast is asserted rather than eyeballed
+— body text and headings clear WCAG AAA against the sky, and every accent-filled control
+clears AA (7.7:1 at worst).
 
 ## Working together
 

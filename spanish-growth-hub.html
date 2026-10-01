@@ -76,6 +76,7 @@ body[data-skin="galaxy"] .skill,body[data-skin="galaxy"] .pcard,
 body[data-skin="galaxy"] .fact,body[data-skin="galaxy"] .copyblock{background:rgba(27,34,64,.5)}
 .skinbtn{display:inline-flex;align-items:center;gap:6px}
 body[data-skin="galaxy"] .skinbtn{border-color:var(--plum);color:var(--plum)}
+body[data-skin="galaxy"] .skinbtn:hover{border-color:var(--water);color:var(--water)}
 @media (max-width:860px){ body[data-skin="galaxy"] nav.rail{background:rgba(10,14,28,.92)} }
 *{box-sizing:border-box}
 html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 96px)}
@@ -161,7 +162,7 @@ main{min-width:0;display:grid;gap:16px;align-content:start}
 .stat.lit .n,.stat.lit .k{color:var(--accent)}
 .stat.lit .how{color:var(--muted)}
 .stat.win{background:var(--ok);border-color:transparent;box-shadow:0 0 0 3px var(--ok-soft)}
-.stat.win .n,.stat.win .k,.stat.win .how{color:#fff}
+.stat.win .n,.stat.win .k,.stat.win .how{color:var(--on-accent)}
 .stat.win .ic{background:rgba(255,255,255,.22)}
 .stat.bump .n{animation:bump .6s cubic-bezier(.2,1.4,.4,1)}
 @keyframes bump{0%{transform:scale(1)}35%{transform:scale(1.2)}100%{transform:scale(1)}}
@@ -190,7 +191,7 @@ main{min-width:0;display:grid;gap:16px;align-content:start}
 .mile{display:flex;gap:10px;align-items:flex-start;background:var(--bg);border:1px solid var(--line);border-radius:var(--r);padding:11px 13px;font-size:13.5px;color:var(--muted);min-width:0}
 .mile .ic{flex:0 0 auto;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:var(--sunk);font-size:12px;color:var(--faint);font-weight:700}
 .mile.on{background:var(--ok-soft);border-color:transparent;color:var(--ink);font-weight:600;animation:popin .55s cubic-bezier(.2,1.4,.4,1)}
-.mile.on .ic{background:var(--ok);color:#fff}
+.mile.on .ic{background:var(--ok);color:var(--on-accent)}
 @keyframes popin{0%{transform:scale(.94);opacity:.6}60%{transform:scale(1.03)}100%{transform:scale(1);opacity:1}}
 .milehead{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
 
@@ -309,9 +310,9 @@ main{min-width:0;display:grid;gap:16px;align-content:start}
 .seg{display:flex;gap:4px;flex:0 0 auto}
 .seg button{border:1.5px solid var(--line);background:var(--panel);border-radius:7px;padding:3px 9px;font-size:12.5px;font-weight:600;color:var(--muted)}
 .seg button:hover{border-color:var(--water)}
-.seg button[data-v="strong"][aria-pressed="true"]{background:var(--ok);border-color:var(--ok);color:#fff}
-.seg button[data-v="partial"][aria-pressed="true"]{background:var(--amber);border-color:var(--amber);color:#fff}
-.seg button[data-v="weak"][aria-pressed="true"]{background:var(--danger);border-color:var(--danger);color:#fff}
+.seg button[data-v="strong"][aria-pressed="true"]{background:var(--ok);border-color:var(--ok);color:var(--on-accent)}
+.seg button[data-v="partial"][aria-pressed="true"]{background:var(--amber);border-color:var(--amber);color:var(--on-accent)}
+.seg button[data-v="weak"][aria-pressed="true"]{background:var(--danger);border-color:var(--danger);color:var(--on-accent)}
 .seg button[data-v="unknown"][aria-pressed="true"]{background:var(--sunk);border-color:var(--line-2);color:var(--ink)}
 .scrow .ev{grid-column:1/-1}
 .scrow .ev input{width:100%;background:var(--bg);border:1.5px solid var(--line);border-radius:7px;padding:6px 10px;font-size:13.5px}
@@ -353,7 +354,7 @@ main{min-width:0;display:grid;gap:16px;align-content:start}
 .dbtn[data-d="approve"]{color:var(--water)} .dbtn[data-d="backup"]{color:var(--amber)}
 .dbtn[data-d="pass"]{color:var(--muted)} .dbtn[data-d="select"]{color:var(--ok)}
 .dbtn[aria-pressed="true"]{background:currentColor;border-color:currentColor}
-.dbtn[aria-pressed="true"] span{color:var(--panel)}
+.dbtn[aria-pressed="true"] span{color:var(--on-accent)}
 .verdict{font-size:13px;color:var(--muted);margin-top:10px}
 
 /* ---------- learning ---------- */
@@ -477,6 +478,19 @@ footer{color:var(--faint);font-size:12.5px;padding-block:20px 10px;border-top:1p
   </div>
   <div class="idline">Lucas &middot; high-school Spanish &middot; MC sources and screens, Cherry reviews, Mariaelena decides</div>
 </header>
+
+<script>
+/* Galaxy is the default. Applied here, before the page paints, so a viewer who has
+   not opted out never sees the old theme flash first. */
+(function(){
+ var hub=false;
+ try{var v=localStorage.getItem("sgh:skin"); hub=!!v&&JSON.parse(v)==="hub";}catch(e){}
+ if(!hub)document.body.dataset.skin="galaxy";
+ var b=document.querySelector('[data-act="skin"]'), l=document.getElementById("skinlabel");
+ if(b)b.setAttribute("aria-pressed",String(!hub));
+ if(l)l.textContent=hub?"Galaxy":"Hub theme";
+})();
+</script>
 
 <div class="layout">
   <nav class="rail" id="rail" role="tablist" aria-label="Hub sections" aria-orientation="vertical"></nav>
@@ -820,13 +834,6 @@ function onErr(e){ if(e&&e.code==="revoked"){state.canWrite=false;render();} els
 
 async function boot(){
  try{const v=Local.get("view"); if(v&&VIEWS.indexOf(v)>-1)state.view=v}catch(e){}
- try{
-  if(Local.get("skin")==="galaxy"){
-   document.body.dataset.skin="galaxy";
-   const b=document.querySelector('[data-act="skin"]'); if(b)b.setAttribute("aria-pressed","true");
-   const l=document.getElementById("skinlabel"); if(l)l.textContent="Hub theme";
-  }
- }catch(e){}
  render();
  DB=await use("db");
  if(DB){
@@ -1837,7 +1844,7 @@ document.addEventListener("click",guard(e=>{
  if(a==="skin"){
    const on=document.body.dataset.skin==="galaxy";
    if(on){delete document.body.dataset.skin}else{document.body.dataset.skin="galaxy"}
-   Local.set("skin",on?"":"galaxy");
+   Local.set("skin",on?"hub":"galaxy");
    t.setAttribute("aria-pressed",String(!on));
    const lbl=document.getElementById("skinlabel"); if(lbl)lbl.textContent=on?"Galaxy":"Hub theme";
    return}
