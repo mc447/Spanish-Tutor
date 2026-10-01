@@ -55,6 +55,19 @@ Design rules the reader follows:
 - Each error code gets its own copy (rate limit, oversized paste, declined consent)
   rather than one generic failure banner.
 
+## Galaxy theme
+
+A ✦ switch in the header swaps the hub's sage ground for a deep indigo sky: two
+nebula washes, star layers at two depths that drift very slowly, and translucent
+panels so the sky shows through without competing with the text. It is declared on
+`body`, so it overrides whichever theme the viewer's app set on `:root` — it works
+over a light or a dark host alike. The choice is remembered per viewer in browser
+storage, and the sky holds still under `prefers-reduced-motion`.
+
+All six accents are redefined for it rather than reused, and the contrast is asserted
+rather than eyeballed: body text and headings clear WCAG AAA against the sky, secondary
+text and the dashboard numerals clear AA.
+
 ## Working together
 
 The hub is live for whoever has it open at the same time:

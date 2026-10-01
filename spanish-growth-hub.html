@@ -33,6 +33,50 @@
   --shadow:none; --pop:0 12px 32px rgba(0,0,0,.5);
 }
 
+/* ---------- Galaxy skin ----------
+   Declared on body so it wins over whichever theme the viewer's app set on :root.
+   Deep indigo rather than black, two nebula washes and star layers at two depths.
+   Restraint is the point: the sky sits behind translucent panels and never competes
+   with the text. */
+body[data-skin="galaxy"]{
+  color-scheme:dark;
+  --bg:#0A0E1C; --panel:rgba(19,25,52,.82); --sunk:#1B2240; --ink:#EAEDFB; --muted:#A4ABCB; --faint:#7C84A8;
+  --line:#28304F; --line-2:#39426B;
+  --water:#79B4F2; --water-soft:#15274A;
+  --ok:#5FD4A8; --ok-soft:#10322A;
+  --amber:#F0C473; --amber-soft:#342915;
+  --clay:#D99BB4; --clay-soft:#311F3A;
+  --danger:#F58196; --danger-soft:#3B1727;
+  --plum:#AE93F0; --plum-soft:#241C45;
+  --sand:#2B2449; --on-accent:#0A0E1C;
+  --shadow:0 1px 2px rgba(0,0,0,.45), 0 0 0 1px rgba(122,169,240,.05);
+  --pop:0 18px 48px rgba(0,0,0,.7);
+  background-color:#0A0E1C;
+  background-image:
+    radial-gradient(1px 1px at 38px 62px, rgba(255,255,255,.55), transparent 58%),
+    radial-gradient(1px 1px at 132px 18px, rgba(205,220,255,.38), transparent 58%),
+    radial-gradient(1.6px 1.6px at 88px 142px, rgba(222,232,255,.55), transparent 58%),
+    radial-gradient(1px 1px at 186px 104px, rgba(255,255,255,.28), transparent 58%),
+    radial-gradient(1.2px 1.2px at 24px 196px, rgba(190,210,255,.42), transparent 58%),
+    radial-gradient(1px 1px at 300px 240px, rgba(255,255,255,.30), transparent 58%),
+    radial-gradient(1180px 640px at 14% -12%, rgba(122,169,240,.17), transparent 62%),
+    radial-gradient(940px 560px at 88% -6%, rgba(174,147,240,.15), transparent 62%),
+    radial-gradient(760px 520px at 52% 112%, rgba(95,212,168,.07), transparent 62%);
+  background-size:230px 210px,230px 210px,230px 210px,230px 210px,390px 340px,390px 340px,100% 100%,100% 100%,100% 100%;
+  background-attachment:fixed;
+  background-repeat:repeat,repeat,repeat,repeat,repeat,repeat,no-repeat,no-repeat,no-repeat;
+  animation:driftsky 240s linear infinite;
+}
+@keyframes driftsky{to{background-position:230px 210px,-230px 210px,230px -210px,-230px -210px,390px 340px,-390px 340px,0 0,0 0,0 0}}
+body[data-skin="galaxy"] header.top{background:rgba(10,14,28,.86);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+body[data-skin="galaxy"] nav.rail{background:transparent}
+body[data-skin="galaxy"] .tab:hover{background:rgba(122,169,240,.08)}
+body[data-skin="galaxy"] .stat.lit .ic{background:rgba(10,14,28,.55)}
+body[data-skin="galaxy"] .skill,body[data-skin="galaxy"] .pcard,
+body[data-skin="galaxy"] .fact,body[data-skin="galaxy"] .copyblock{background:rgba(27,34,64,.5)}
+.skinbtn{display:inline-flex;align-items:center;gap:6px}
+body[data-skin="galaxy"] .skinbtn{border-color:var(--plum);color:var(--plum)}
+@media (max-width:860px){ body[data-skin="galaxy"] nav.rail{background:rgba(10,14,28,.92)} }
 *{box-sizing:border-box}
 html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 96px)}
 html,body{margin:0}
@@ -425,6 +469,7 @@ footer{color:var(--faint);font-size:12.5px;padding-block:20px 10px;border-top:1p
       <span class="alarm" id="alarm"><span class="pulse"></span><span id="alarmtext">\u{1F6A8} Find a tutor ASAP</span></span>
     </div>
     <div class="band-right">
+      <button class="btn sm skinbtn" data-act="skin" aria-pressed="false" title="Switch between the hub theme and Galaxy">&#10022; <span id="skinlabel">Galaxy</span></button>
       <button class="btn primary addbtn" data-act="quickadd">Add tutor</button>
       <div class="presence" id="presence" hidden></div>
       <div class="clock"><span class="lbl">Time since search started</span><span class="val" id="elapsed">&mdash;</span></div>
@@ -775,6 +820,13 @@ function onErr(e){ if(e&&e.code==="revoked"){state.canWrite=false;render();} els
 
 async function boot(){
  try{const v=Local.get("view"); if(v&&VIEWS.indexOf(v)>-1)state.view=v}catch(e){}
+ try{
+  if(Local.get("skin")==="galaxy"){
+   document.body.dataset.skin="galaxy";
+   const b=document.querySelector('[data-act="skin"]'); if(b)b.setAttribute("aria-pressed","true");
+   const l=document.getElementById("skinlabel"); if(l)l.textContent="Hub theme";
+  }
+ }catch(e){}
  render();
  DB=await use("db");
  if(DB){
@@ -1773,6 +1825,13 @@ document.addEventListener("click",guard(e=>{
  if(a==="open"){state.open=t.dataset.id;drawerScroll=0;impReset();render();return}
  if(a==="close"){state.open=null;impReset();render();return}
  if(a==="newcand"){newCandidate();return}
+ if(a==="skin"){
+   const on=document.body.dataset.skin==="galaxy";
+   if(on){delete document.body.dataset.skin}else{document.body.dataset.skin="galaxy"}
+   Local.set("skin",on?"":"galaxy");
+   t.setAttribute("aria-pressed",String(!on));
+   const lbl=document.getElementById("skinlabel"); if(lbl)lbl.textContent=on?"Galaxy":"Hub theme";
+   return}
  if(a==="quickadd"){
    state.view="candidates";state.quick=true;state.filter="all";Local.set("view","candidates");
    render();setTimeout(()=>{const n=document.getElementById("qa-name");if(n)n.focus()},60);return}
