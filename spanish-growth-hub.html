@@ -823,11 +823,18 @@ function q(key,fn){const p=(chain.get(key)||Promise.resolve()).catch(()=>{}).the
 const timers=new Map();
 function later(key,fn,ms){clearTimeout(timers.get(key));timers.set(key,setTimeout(()=>q(key,fn),ms===undefined?550:ms));}
 
+/* ids whose latest edits are not on the server yet, so an incoming snapshot
+   does not overwrite what is being typed right now */
+const pendingSave=new Set();
 function saveCandidate(c,ms){
  c.updatedAt=new Date().toISOString();
  state.candidates[c.id]=c;
  const body=Object.assign({},c); delete body.id;
- if(DB) later("c:"+c.id,()=>DB.collection("candidates").doc(c.id).set(body),ms);
+ if(DB){
+  pendingSave.add(c.id);
+  later("c:"+c.id,()=>Promise.resolve(DB.collection("candidates").doc(c.id).set(body))
+    .then(()=>{pendingSave.delete(c.id)},e=>{pendingSave.delete(c.id);throw e}),ms);
+ }
  else {Local.set("cand:"+c.id,c);}
 }
 function removeCandidate(id){
@@ -865,6 +872,7 @@ async function boot(){
   state.mode="db";
   DB.collection("candidates").onSnapshot(s=>{
     const next={}; s.docs.forEach(d=>{next[d.id]=Object.assign({id:d.id},mut(d.data()))});
+    pendingSave.forEach(id=>{if(state.candidates[id])next[id]=state.candidates[id]});
     state.candidates=next; render();
   },onErr);
   DB.collection("assignments").onSnapshot(s=>{
@@ -1668,7 +1676,7 @@ function drawerBody(c){
   <div style="margin-top:6px">
   ${QUESTIONS.map((qq,n)=>`<div class="q">
     <div class="qh"><input type="checkbox" id="q-${n}" data-act="askq" data-n="${n}" ${i.asked&&i.asked["q"+n]?"checked":""}><label for="q-${n}">${esc(qq)}</label></div>
-    <textarea id="qa-${n}" data-act="qa" data-n="${n}" placeholder="Their answer">${esc((i.answers||{})["q"+n]||"")}</textarea>
+    <textarea id="qa-${n}" data-act="qans" data-n="${n}" placeholder="Their answer">${esc((i.answers||{})["q"+n]||"")}</textarea>
    </div>`).join("")}
   </div>
  </div>
@@ -1974,7 +1982,7 @@ document.addEventListener("change",guard(e=>{
 document.addEventListener("input",guard(e=>{
  const t=e.target.closest("[data-act]"); if(!t)return;
  const a=t.dataset.act,c=cur();
- if(a==="qa"){qa[t.dataset.k]=t.value;
+ if(a==="qa"&&t.dataset.k){qa[t.dataset.k]=t.value;
    const sv=document.querySelector('[data-act="qasave"]'), op=document.querySelector('[data-act="qaopen"]');
    const ready=!!qa.name.trim();
    if(sv)sv.disabled=!ready; if(op)op.disabled=!ready;
@@ -1990,7 +1998,7 @@ document.addEventListener("input",guard(e=>{
    return}
  if(a==="cf"&&c){c[t.dataset.k]=t.value;saveCandidate(c);softRender();return}
  if(a==="ev"&&c){const s=t.dataset.s;c.scores=Object.assign({},c.scores);c.scores[s]=Object.assign({v:"unknown"},c.scores[s],{e:t.value});saveCandidate(c);softRender();return}
- if(a==="qa"&&c){c.interview=Object.assign({answers:{},asked:{}},c.interview);c.interview.answers=Object.assign({},c.interview.answers);
+ if(a==="qans"&&c){c.interview=Object.assign({answers:{},asked:{}},c.interview);c.interview.answers=Object.assign({},c.interview.answers);
    c.interview.answers["q"+t.dataset.n]=t.value;saveCandidate(c);softRender();return}
  if(a==="tf"&&c){c.trial=Object.assign({scores:{}},c.trial);c.trial[t.dataset.k]=t.value;saveCandidate(c);softRender();return}
  if(a==="learn"){const L=state.learning=Object.assign({},state.learning);L[t.dataset.k]=t.value;saveMeta("learning");return}

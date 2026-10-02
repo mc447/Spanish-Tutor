@@ -124,3 +124,13 @@ Capabilities declared: `db`, `user` (profile scope, for names), `assets` (homewo
 attachments), `room` (presence, with the `nudge` topic open to Contributors), and
 `comments` in composer-only form so no consent prompt is ever shown, and `sample`
 (the viewer's own Claude usage) for the Upwork profile reader.
+
+Two rules the editing code has to keep:
+
+- **Every `data-act` name is global.** The delegated `input`/`change` handlers match on that
+  one attribute, so two different controls sharing a name means the first branch wins and the
+  second control silently stops saving. Interview answers use `qans`; the quick-add form uses
+  `qa`.
+- **A snapshot must not overwrite an edit still in flight.** Writes are debounced, so
+  `saveCandidate` marks the tutor pending until the write lands, and the `candidates`
+  snapshot keeps the local copy of anything still pending.
