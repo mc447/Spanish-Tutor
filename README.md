@@ -57,8 +57,10 @@ Design rules the reader follows:
 
 ## Galaxy theme
 
-The background is a canvas starfield, not a tiled image: three parallax depths with
-per-star twinkle, a nebula drifting behind them, and an occasional meteor.
+The background is a canvas field, not a tiled image: three parallax depths of tinted
+motes with per-mote twinkle, an aurora drifting behind them, and an occasional streak.
+White stars are invisible on a light ground, so the motes are tinted blue, violet, mint
+and rose instead.
 
 It is built to hold 60fps and to be honest when it cannot. Stars are pre-rendered
 sprites (no per-star gradient or `shadowBlur`), draws are batched into ten alpha
@@ -76,7 +78,7 @@ cost on any device.
 
 The CSS starfield remains as the fallback for a view that cannot paint the canvas.
 
-Galaxy is the hub's theme. A deep indigo sky: two
+Galaxy is the hub's theme, in daylight. A pale lilac sky: two
 nebula washes, star layers at two depths that drift very slowly, and translucent
 panels so the sky shows through without competing with the text. It is declared on
 `body`, so it overrides whichever theme the viewer's app set on `:root` — it looks the

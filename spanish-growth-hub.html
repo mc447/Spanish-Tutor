@@ -33,68 +33,65 @@
   --shadow:none; --pop:0 12px 32px rgba(0,0,0,.5);
 }
 
-/* ---------- Galaxy skin ----------
-   Declared on body so it wins over whichever theme the viewer's app set on :root.
-   Deep indigo rather than black, two nebula washes and star layers at two depths.
-   Restraint is the point: the sky sits behind translucent panels and never competes
-   with the text. */
+/* ---------- Galaxy skin, in daylight ----------
+   Same idea, no dark ground: a pale lilac sky with aurora washes and soft motes
+   of light drifting through it. Declared on body so it wins over whichever theme
+   the viewer's app set on :root. Text is deep slate because text has to be dark
+   to be read on a light ground — every SURFACE here is light. */
 body[data-skin="galaxy"]{
-  color-scheme:dark;
-  --bg:#283157; --panel:rgba(52,66,118,.78); --sunk:#3C4883; --ink:#F3F5FF; --muted:#C2C9E6; --faint:#9EA7CA;
-  --line:#47538D; --line-2:#5B67A6;
-  --water:#9BCAFA; --water-soft:#2F4A78;
-  --ok:#7FE4C0; --ok-soft:#255A48;
-  --amber:#F9D795; --amber-soft:#5A4A2C;
-  --clay:#EDB6CA; --clay-soft:#553D63;
-  --danger:#FFA2B4; --danger-soft:#623147;
-  --plum:#C9B2FF; --plum-soft:#443878;
-  --sand:#4A4176; --on-accent:#0C1127;
-  --shadow:0 1px 2px rgba(0,0,0,.45), 0 0 0 1px rgba(122,169,240,.05);
-  --pop:0 18px 48px rgba(0,0,0,.7);
-  background-color:#283157;
+  color-scheme:light;
+  --bg:#F3F1FB; --panel:rgba(255,255,255,.88); --sunk:#E7E3F6; --ink:#2B2A4A; --muted:#5D5B86; --faint:#8886AC;
+  --line:#DED8F2; --line-2:#C7C0E6;
+  --water:#2E6FB8; --water-soft:#DEEAFB;
+  --ok:#1C7A55; --ok-soft:#D7F1E4;
+  --amber:#9A6A0F; --amber-soft:#FBECCF;
+  --clay:#9C5572; --clay-soft:#F8DFEB;
+  --danger:#B32B45; --danger-soft:#FBDDE3;
+  --plum:#6A4A9E; --plum-soft:#EBE1FA;
+  --sand:#F0E7D4; --on-accent:#FFFFFF;
+  --shadow:0 1px 2px rgba(62,56,112,.07), 0 10px 26px -20px rgba(62,56,112,.55);
+  --pop:0 18px 48px rgba(62,56,112,.22);
+  background-color:#F3F1FB;
   background-image:
-    radial-gradient(1px 1px at 38px 62px, rgba(255,255,255,.55), transparent 58%),
-    radial-gradient(1px 1px at 132px 18px, rgba(205,220,255,.38), transparent 58%),
-    radial-gradient(1.6px 1.6px at 88px 142px, rgba(222,232,255,.55), transparent 58%),
-    radial-gradient(1px 1px at 186px 104px, rgba(255,255,255,.28), transparent 58%),
-    radial-gradient(1.2px 1.2px at 24px 196px, rgba(190,210,255,.42), transparent 58%),
-    radial-gradient(1px 1px at 300px 240px, rgba(255,255,255,.30), transparent 58%),
-    radial-gradient(1180px 640px at 14% -12%, rgba(140,190,255,.34), transparent 66%),
-    radial-gradient(940px 560px at 88% -6%, rgba(196,170,255,.32), transparent 66%),
-    radial-gradient(760px 520px at 52% 112%, rgba(115,232,192,.18), transparent 66%);
-  background-size:230px 210px,230px 210px,230px 210px,230px 210px,390px 340px,390px 340px,100% 100%,100% 100%,100% 100%;
+    radial-gradient(2px 2px at 44px 70px, rgba(146,172,240,.30), transparent 60%),
+    radial-gradient(2px 2px at 150px 24px, rgba(196,156,238,.26), transparent 60%),
+    radial-gradient(2.6px 2.6px at 96px 160px, rgba(126,214,198,.24), transparent 60%),
+    radial-gradient(2px 2px at 206px 118px, rgba(242,166,196,.22), transparent 60%),
+    radial-gradient(1200px 660px at 12% -10%, rgba(140,170,255,.40), transparent 64%),
+    radial-gradient(980px 580px at 90% -4%, rgba(208,160,252,.36), transparent 64%),
+    radial-gradient(840px 560px at 50% 112%, rgba(128,228,208,.30), transparent 66%),
+    radial-gradient(720px 520px at 76% 58%, rgba(255,186,208,.22), transparent 66%);
+  background-size:250px 230px,250px 230px,250px 230px,250px 230px,100% 100%,100% 100%,100% 100%,100% 100%;
   background-attachment:fixed;
-  background-repeat:repeat,repeat,repeat,repeat,repeat,repeat,no-repeat,no-repeat,no-repeat;
+  background-repeat:repeat,repeat,repeat,repeat,no-repeat,no-repeat,no-repeat,no-repeat;
   animation:driftsky 240s linear infinite;
 }
-@keyframes driftsky{to{background-position:230px 210px,-230px 210px,230px -210px,-230px -210px,390px 340px,-390px 340px,0 0,0 0,0 0}}
-/* The canvas sky sits behind everything; the CSS starfield above stays as the
-   fallback for a view that cannot paint it. Once the canvas is live, .sky-live
-   drops the tiled stars so they are not drawn twice. */
+@keyframes driftsky{to{background-position:250px 230px,-250px 230px,250px -230px,-250px -230px,0 0,0 0,0 0,0 0}}
+/* The canvas sky sits behind everything; the CSS wash above stays as the fallback
+   for a view that cannot paint it. Once the canvas is live, .sky-live drops the
+   tiled motes so they are not drawn twice. */
 #sky{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;display:none}
 body[data-skin="galaxy"] #sky{display:block}
 body[data-skin="galaxy"] .layout{position:relative;z-index:1}
 body[data-skin="galaxy"].sky-live{
   background-image:
-    radial-gradient(1180px 640px at 14% -12%, rgba(140,190,255,.22), transparent 66%),
-    radial-gradient(940px 560px at 88% -6%, rgba(196,170,255,.20), transparent 66%);
+    radial-gradient(1200px 660px at 12% -10%, rgba(140,170,255,.26), transparent 64%),
+    radial-gradient(980px 580px at 90% -4%, rgba(208,160,252,.24), transparent 64%);
   background-size:100% 100%,100% 100%;
   background-repeat:no-repeat,no-repeat;
   animation:none;
 }
-body[data-skin="galaxy"] header.top{background:rgba(40,49,87,.90);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+body[data-skin="galaxy"] header.top{background:rgba(249,248,254,.86);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
 body[data-skin="galaxy"] nav.rail{background:transparent}
-body[data-skin="galaxy"] .tab:hover{background:rgba(140,192,247,.12)}
-/* an amber bed reads as olive against indigo unless the text is amber too */
-body[data-skin="galaxy"] .banner,body[data-skin="galaxy"] .caveat{color:var(--amber)}
-body[data-skin="galaxy"] .banner b,body[data-skin="galaxy"] .caveat b{color:var(--amber)}
-body[data-skin="galaxy"] .stat.lit .ic{background:rgba(30,38,72,.6)}
+body[data-skin="galaxy"] .tab:hover{background:rgba(255,255,255,.75)}
+body[data-skin="galaxy"] .stat.lit .ic{background:rgba(255,255,255,.85)}
 body[data-skin="galaxy"] .skill,body[data-skin="galaxy"] .pcard,
-body[data-skin="galaxy"] .fact,body[data-skin="galaxy"] .copyblock{background:rgba(62,78,134,.48)}
+body[data-skin="galaxy"] .fact,body[data-skin="galaxy"] .copyblock{background:rgba(255,255,255,.62)}
+body[data-skin="galaxy"] .scrim{background:rgba(43,42,74,.38)}
 .skinbtn{display:inline-flex;align-items:center;gap:6px}
 body[data-skin="galaxy"] .skinbtn{border-color:var(--plum);color:var(--plum)}
 body[data-skin="galaxy"] .skinbtn:hover{border-color:var(--water);color:var(--water)}
-@media (max-width:860px){ body[data-skin="galaxy"] nav.rail{background:rgba(40,49,87,.94)} }
+@media (max-width:860px){ body[data-skin="galaxy"] nav.rail{background:rgba(249,248,254,.94)} }
 *{box-sizing:border-box}
 html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 96px)}
 html,body{margin:0}
@@ -2057,7 +2054,8 @@ const Sky=(function(){
  let ctx=null; try{ctx=cv.getContext("2d",{alpha:true})}catch(e){}
  if(!ctx)return{start(){},stop(){},stats(){return null}};
 
- const TINTS=["#FFFFFF","#CBDEFF","#AFC8FF","#FFE6C4","#E2D4FF"];
+ /* Tinted motes, not white stars: on a light ground white is invisible. */
+ const TINTS=["#7E9BEE","#B98CEC","#5FCDB4","#F09ABA","#9FB6F2"];
  const sprites=TINTS.map(c=>{
   const n=document.createElement("canvas"); n.width=n.height=24;
   const g=n.getContext("2d"), r=g.createRadialGradient(12,12,0,12,12,12);
@@ -2088,9 +2086,9 @@ const Sky=(function(){
   const n=document.createElement("canvas");
   n.width=Math.max(2,Math.ceil(W/4)); n.height=Math.max(2,Math.ceil(H/4));
   const g=n.getContext("2d");
-  const blobs=[[.18,-.05,.80,"rgba(132,182,255,.42)"],[.86,.02,.68,"rgba(192,164,255,.40)"],
-               [.52,1.06,.74,"rgba(112,228,192,.24)"],[.70,.55,.50,"rgba(154,128,230,.24)"],
-               [.33,.62,.42,"rgba(244,162,200,.15)"]];
+  const blobs=[[.18,-.05,.82,"rgba(132,166,255,.46)"],[.86,.02,.70,"rgba(203,150,252,.44)"],
+               [.52,1.06,.76,"rgba(116,224,202,.38)"],[.70,.55,.52,"rgba(255,176,204,.32)"],
+               [.33,.62,.44,"rgba(154,194,255,.28)"]];
   for(const [x,y,r,c] of blobs){
    const cx=x*n.width, cy=y*n.height, rad=r*Math.max(n.width,n.height);
    const gr=g.createRadialGradient(cx,cy,0,cx,cy,rad);
@@ -2120,16 +2118,16 @@ const Sky=(function(){
    const d=i%3;                                   /* 0 far, 1 mid, 2 near */
    stars.push({
     x:Math.random()*W, y:Math.random()*H, d:d,
-    s:(d===0?0.9:d===1?1.5:2.3)+Math.random()*(d===2?1.6:0.7),
-    a:(d===0?0.34:d===1?0.55:0.78)*(0.65+Math.random()*0.35),
-    c:Math.random()<0.78?0:1+((Math.random()*4)|0),
+    s:(d===0?2.2:d===1?3.6:5.4)+Math.random()*(d===2?4.2:1.8),
+    a:(d===0?0.17:d===1?0.27:0.40)*(0.65+Math.random()*0.35),
+    c:(Math.random()*TINTS.length)|0,
     ph:Math.random()*6.283, tw:0.5+Math.random()*1.6
    });
   }
   const nb=Math.max(4,Math.round(count/90));
   for(let i=0;i<nb;i++)bright.push({
-   x:Math.random()*W, y:Math.random()*H, s:7+Math.random()*7,
-   a:0.5+Math.random()*0.35, c:(Math.random()*TINTS.length)|0,
+   x:Math.random()*W, y:Math.random()*H, s:16+Math.random()*14,
+   a:0.16+Math.random()*0.14, c:(Math.random()*TINTS.length)|0,
    ph:Math.random()*6.283, tw:0.35+Math.random()*0.5
   });
   buildNebula();
@@ -2199,8 +2197,8 @@ const Sky=(function(){
     const tx=x-meteor.vx*meteor.len, ty=y-meteor.vy*meteor.len;
     const fade=Math.sin(Math.PI*k);
     const g=ctx.createLinearGradient(x,y,tx,ty);
-    g.addColorStop(0,"rgba(226,238,255,"+(0.85*fade).toFixed(3)+")");
-    g.addColorStop(1,"rgba(226,238,255,0)");
+    g.addColorStop(0,"rgba(132,106,206,"+(0.50*fade).toFixed(3)+")");
+    g.addColorStop(1,"rgba(132,106,206,0)");
     ctx.globalAlpha=1; ctx.strokeStyle=g; ctx.lineWidth=1.6; ctx.lineCap="round";
     ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(tx,ty); ctx.stroke();
    }
