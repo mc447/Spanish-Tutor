@@ -113,11 +113,18 @@ header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;backgroun
 .toprow{max-width:1240px;margin:0 auto;display:flex;flex-wrap:wrap;gap:10px 20px;align-items:center;justify-content:space-between}
 .titleline{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 12px;min-width:0}
 .idline{max-width:1240px;margin:4px auto 0;font-size:13px;color:var(--muted)}
-.band-right{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center}
-.clock{text-align:right}
-.clock .lbl{display:block;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--faint)}
-.clock .val{font-family:var(--serif);font-size:19px;font-weight:650;font-variant-numeric:tabular-nums;line-height:1.2}
+.band-right{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center}
+.clock{text-align:right;line-height:1.15;white-space:nowrap}
+.clock .lbl{display:block;font-size:10.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--faint)}
+.clock .val{font-family:var(--serif);font-size:20px;font-weight:650;font-variant-numeric:tabular-nums}
 
+/* a quiet icon control: a preference, not an action, so it should not carry the
+   same weight as Add tutor */
+.vh{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.iconbtn{width:34px;height:34px;flex:0 0 auto;border:1.5px solid var(--line);background:var(--panel);border-radius:9px;
+  display:grid;place-items:center;font-size:15px;line-height:1;color:var(--plum);padding:0}
+.iconbtn:hover{border-color:var(--water);color:var(--water)}
+.iconbtn[aria-pressed="true"]{background:var(--plum-soft);border-color:transparent;color:var(--plum)}
 /* ---------- chips & badges ---------- */
 .chip{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:700;white-space:nowrap;background:var(--bg);color:var(--muted);border:1px solid var(--line)}
 .chip.ok{background:var(--ok-soft);color:var(--ok);border-color:transparent}
@@ -444,6 +451,7 @@ main{min-width:0;display:grid;gap:16px;align-content:start}
 .pstack .pav:first-child{margin-left:0}
 .pav.me{box-shadow:0 0 0 2px var(--clay)}
 .plabel{font-size:12px;color:var(--muted);white-space:nowrap;display:flex;align-items:center;gap:5px}
+.pmore{font-size:11.5px;font-weight:700;color:var(--muted);background:var(--sunk);border-radius:999px;padding:2px 7px;flex:0 0 auto}
 .livedot{width:7px;height:7px;border-radius:50%;background:var(--ok);flex:0 0 auto}
 .livedot.off{background:var(--faint)}
 .watchers{display:flex;flex:0 0 auto}
@@ -481,13 +489,13 @@ footer{color:var(--faint);font-size:12.5px;padding-block:20px 10px;border-top:1p
   <div class="toprow">
     <div class="titleline">
       <h1>Spanish Growth Hub</h1>
-      <span class="alarm" id="alarm"><span class="pulse"></span><span id="alarmtext">\u{1F6A8} Find a tutor ASAP</span></span>
+      <span class="alarm" id="alarm"><span class="pulse"></span><span id="alarmtext">&#128680; Find a tutor ASAP</span></span>
     </div>
     <div class="band-right">
-      <button class="btn sm skinbtn" data-act="skin" aria-pressed="false" title="Switch between the hub theme and Galaxy">&#10022; <span id="skinlabel">Galaxy</span></button>
-      <button class="btn primary addbtn" data-act="quickadd">Add tutor</button>
+      <div class="clock"><span class="lbl" id="clocklbl">Search running</span><span class="val" id="elapsed">&mdash;</span></div>
       <div class="presence" id="presence" hidden></div>
-      <div class="clock"><span class="lbl">Time since search started</span><span class="val" id="elapsed">&mdash;</span></div>
+      <button class="iconbtn skinbtn" data-act="skin" aria-pressed="false" title="Switch between the hub theme and Galaxy">&#10022;<span class="vh" id="skinlabel">Galaxy</span></button>
+      <button class="btn primary addbtn" data-act="quickadd">Add tutor</button>
     </div>
   </div>
   <div class="idline">Lucas &middot; high-school Spanish &middot; MC sources and screens, Cherry reviews, Mariaelena decides</div>
@@ -501,7 +509,8 @@ footer{color:var(--faint);font-size:12.5px;padding-block:20px 10px;border-top:1p
  try{var v=localStorage.getItem("sgh:skin"); hub=!!v&&JSON.parse(v)==="hub";}catch(e){}
  if(!hub)document.body.dataset.skin="galaxy";
  var b=document.querySelector('[data-act="skin"]'), l=document.getElementById("skinlabel");
- if(b)b.setAttribute("aria-pressed",String(!hub));
+ if(b){b.setAttribute("aria-pressed",String(!hub));
+       b.title=hub?"Switch to the Galaxy theme":"Switch to the hub theme";}
  if(l)l.textContent=hub?"Galaxy":"Hub theme";
 })();
 </script>
@@ -942,16 +951,18 @@ function metrics(){
 
 /* ============================ elapsed clock ============================ */
 function tick(){
- const el=$("#elapsed"),al=$("#alarm"),at=$("#alarmtext");
+ const el=$("#elapsed"),al=$("#alarm"),at=$("#alarmtext"),lb=$("#clocklbl");
  if(!el)return;
  const started=state.search&&state.search.startedAt?Date.parse(state.search.startedAt):NaN;
  const h=hired();
  if(h){
-  al.className="alarm calm"; at.textContent="\u{1F3C6} TUTOR HIRED — "+(h.name||"").toUpperCase();
-  el.textContent=started>0?fmtSpan(Date.now()-started)+" to hire":"—";
+  al.className="alarm calm"; at.textContent="\u{1F3C6} Hired — "+(h.name||"");
+  if(lb)lb.textContent="Time to hire";
+  el.textContent=started>0?fmtSpan(Date.now()-started):"—";
  }else{
-  al.className="alarm"; at.textContent="\u{1F6A8} FIND A TUTOR ASAP";
-  el.textContent=started>0?fmtSpan(Date.now()-started):"not started";
+  al.className="alarm"; at.textContent="\u{1F6A8} Find a tutor ASAP";
+  if(lb)lb.textContent=started>0?"Search running":"Search not started";
+  el.textContent=started>0?fmtSpan(Date.now()-started):"—";
  }
  if(started>0)el.title=startedLabel(); else el.removeAttribute("title");
 }
@@ -1040,10 +1051,13 @@ function renderPresence(){
  const o=others();
  if(!o.length&&!roomSettled){el.hidden=true;return}
  el.hidden=false;
- const shown=o.slice(0,4), extra=o.length-shown.length;
+ const shown=o.slice(0,3), extra=o.length-shown.length;
  const me=peers.find(x=>x.isMe&&x.sameTab);
- el.innerHTML=`<span class="pstack">${shown.map(x=>peerAv(x)).join("")}${me?peerAv(me):""}</span>
-  <span class="plabel"><span class="livedot${roomLive?"":" off"}"></span>${o.length?esc((o.length+1)+" here"+(extra>0?" (+"+extra+" more)":"")):"just you"}</span>`;
+ const total=o.length+1;
+ el.title=o.length?total+" people have the hub open":"Only you have the hub open";
+ el.innerHTML=`<span class="livedot${roomLive?"":" off"}"></span>`+
+  `<span class="pstack">${shown.map(x=>peerAv(x)).join("")}${me?peerAv(me):""}</span>`+
+  (extra>0?`<span class="pmore">+${extra}</span>`:"");
 }
 function renderProgress(){
  const L=list(), far=L.length?Math.max.apply(null,L.map(ix)):-1;
@@ -1862,6 +1876,7 @@ document.addEventListener("click",guard(e=>{
    if(on){delete document.body.dataset.skin}else{document.body.dataset.skin="galaxy"}
    Local.set("skin",on?"hub":"galaxy");
    t.setAttribute("aria-pressed",String(!on));
+   t.title=on?"Switch to the Galaxy theme":"Switch to the hub theme";
    const lbl=document.getElementById("skinlabel"); if(lbl)lbl.textContent=on?"Galaxy":"Hub theme";
    syncSky();
    return}
