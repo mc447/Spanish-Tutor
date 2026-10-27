@@ -120,6 +120,12 @@ browser-local storage and says so in the footer.
 Collections: `candidates`, `assignments`, and the documents `meta/search`, `meta/learning`,
 `meta/board`.
 
+`meta/search` holds `startedAt` and, once the search is over, `endedAt`. The elapsed figure
+is the distance between them, so a finished search keeps reading how long it took instead of
+climbing for the rest of the year. Moving a tutor to **Hired** sets `endedAt`; undoing the
+only hire clears it; **Stop the clock** on the Today tab is for searches that end some other
+way.
+
 Capabilities declared: `db`, `user` (profile scope, for names), `assets` (homework
 attachments), `room` (presence, with the `nudge` topic open to Contributors), and
 `comments` in composer-only form so no consent prompt is ever shown, and `sample`

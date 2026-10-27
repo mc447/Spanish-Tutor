@@ -483,6 +483,15 @@ footer{color:var(--faint);font-size:12.5px;padding-block:20px 10px;border-top:1p
  .who2{grid-template-columns:minmax(0,1fr);gap:2px}
 }
 @media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}}
+.clockstrip{display:flex;align-items:center;gap:12px;padding:13px 16px;margin-bottom:14px}
+.clockstrip .cic{font-size:21px;line-height:1;flex:none}
+.clockstrip .ctext{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.clockstrip .ctext b{font-size:15px;font-weight:650}
+.clockstrip .cspan{color:var(--water);font-variant-numeric:tabular-nums}
+.clockstrip.done .cspan{color:var(--ok)}
+.clockstrip .sub{font-size:12.5px;color:var(--faint)}
+.clockstrip .btn{flex:none}
+@media (max-width:560px){.clockstrip{flex-wrap:wrap}.clockstrip .ctext{flex-basis:calc(100% - 33px)}.clockstrip .btn{margin-left:33px}}
 </style>
 
 <header class="top">
@@ -958,29 +967,40 @@ function metrics(){
 }
 
 /* ============================ elapsed clock ============================ */
+/* The clock runs from the moment the hub was created to the moment the search
+   ended. Once it has ended it is a fixed number — how long the search took —
+   so it must stop counting, not keep climbing for the rest of the year. */
+function searchStart(){const t=state.search&&state.search.startedAt?Date.parse(state.search.startedAt):NaN;return t>0?t:0}
+function searchEnd(){const t=state.search&&state.search.endedAt?Date.parse(state.search.endedAt):NaN;return t>0?t:0}
+function searchRunning(){return searchStart()>0&&!searchEnd()}
+function elapsedMs(){const a=searchStart();if(!a)return NaN;const b=searchEnd();return (b>a?b:Date.now())-a}
+function elapsedText(){return fmtSpan(elapsedMs())}
 function tick(){
  const el=$("#elapsed"),al=$("#alarm"),at=$("#alarmtext"),lb=$("#clocklbl");
  if(!el)return;
- const started=state.search&&state.search.startedAt?Date.parse(state.search.startedAt):NaN;
- const h=hired();
+ const started=searchStart(), ended=searchEnd(), h=hired();
  if(h){
   al.className="alarm calm"; at.textContent="\u{1F3C6} Hired — "+(h.name||"");
   if(lb)lb.textContent="Time to hire";
-  el.textContent=started>0?fmtSpan(Date.now()-started):"—";
+ }else if(ended){
+  al.className="alarm calm"; at.textContent="\u2705 Search closed";
+  if(lb)lb.textContent="Search took";
  }else{
   al.className="alarm"; at.textContent="\u{1F6A8} Find a tutor ASAP";
   if(lb)lb.textContent=started>0?"Search running":"Search not started";
-  el.textContent=started>0?fmtSpan(Date.now()-started):"—";
  }
+ el.textContent=started>0?elapsedText():"—";
  if(started>0)el.title=startedLabel(); else el.removeAttribute("title");
 }
-/* The clock counts from the moment the hub was created. Showing that moment on
-   hover makes the elapsed figure checkable instead of something to take on trust. */
+/* Showing the window it counts on hover makes the figure checkable
+   instead of something to take on trust. */
+function clockMoment(t){return new Date(t).toLocaleString(undefined,
+   {weekday:"short",day:"numeric",month:"short",hour:"numeric",minute:"2-digit"})}
 function startedLabel(){
- const t=state.search&&state.search.startedAt?Date.parse(state.search.startedAt):NaN;
- if(!(t>0))return "";
- return "Counting from "+new Date(t).toLocaleString(undefined,
-   {weekday:"short",day:"numeric",month:"short",hour:"numeric",minute:"2-digit"});
+ const a=searchStart(); if(!a)return "";
+ const b=searchEnd();
+ return b?"Counting from "+clockMoment(a)+" to "+clockMoment(b)
+         :"Counting from "+clockMoment(a);
 }
 function fmtSpan(ms){
  if(!(ms>=0))return "—";
@@ -1111,6 +1131,20 @@ function render(){
 }
 
 /* ============================ view: command ============================ */
+/* The search clock, where it can be stopped. A hire stops it on its own; this is
+   for the searches that end some other way, and for putting it right afterwards. */
+function clockStrip(){
+ const a=searchStart(), b=searchEnd(), h=hired();
+ if(!a)return "";
+ const when=b?clockMoment(a)+" to "+clockMoment(b):"since "+clockMoment(a);
+ const head=h?"Hired "+esc(h.name||""):b?"Search closed":"Search running";
+ return `<div class="panel clockstrip${b?" done":""}">
+  <span class="cic">${b?"\u{1F3C1}":"\u23F1\uFE0F"}</span>
+  <div class="ctext"><b>${head} <span class="cspan">${esc(elapsedText())}</span></b><span class="sub">${esc(when)}</span></div>
+  ${b?`<button class="btn sm ghost" data-act="runclock">Still searching</button>`
+     :`<button class="btn sm" data-act="stopclock">Stop the clock</button>`}
+ </div>`;
+}
 function viewToday(){
  const b=state.board||{};
  const got=b.milestones||{};
@@ -1120,6 +1154,7 @@ function viewToday(){
   <h2>Find &rarr; verify &rarr; interview &rarr; trial &rarr; Mariaelena &rarr; hire</h2>
   <p class="sub" style="font-size:15px">The objective is a tutor teaching Lucas this week, not a long research project. Work straight down these two lists.</p>
  </div>
+ ${clockStrip()}
  <div class="panel">
   <h2>Today <span class="tagline">the eight moves, in order</span></h2>
   <div style="margin-top:12px">
@@ -1838,8 +1873,20 @@ function setStage(id,stage){
  const was=c.stage; c.stage=stage;
  saveCandidate(c,0);
  if(stage!==was){state.justMoved=id;clearTimeout(movedT);movedT=setTimeout(()=>{state.justMoved=null;render()},1100)}
- if(stage==="hired"&&was!=="hired"){toast(c.name+" is hired — the Learning tab is open.");state.view="learning"}
+ if(stage==="hired"&&was!=="hired"){stopSearch();toast(c.name+" is hired — the Learning tab is open.");state.view="learning"}
+ if(was==="hired"&&stage!=="hired"&&!hired())resumeSearch();
  render(); checkMilestones();
+}
+/* A hire ends the search; undoing the only hire puts the clock back on. */
+function stopSearch(){
+ if(!searchRunning())return;
+ state.search=Object.assign({},state.search,{endedAt:new Date().toISOString()});
+ saveMeta("search",0);
+}
+function resumeSearch(){
+ if(!searchEnd())return;
+ const s=Object.assign({},state.search); delete s.endedAt; state.search=s;
+ saveMeta("search",0);
 }
 let movedT=null;
 function qaClear(){qa.name="";qa.upworkUrl="";qa.rate="";qa.timezone="";}
@@ -1906,6 +1953,8 @@ document.addEventListener("click",guard(e=>{
    return}
  if(a==="copy"){copyText(t.dataset.src);return}
  if(a==="startclock"){state.search={startedAt:new Date().toISOString()};saveMeta("search",0);render();toast("Clock started");return}
+ if(a==="stopclock"){if(!searchRunning())return;stopSearch();render();toast("Clock stopped at "+elapsedText());return}
+ if(a==="runclock"){if(!searchEnd())return;resumeSearch();render();toast("Clock running again");return}
  if(a==="advance"){const x=state.candidates[t.dataset.id];if(x)setStage(x.id,STAGES[Math.min(ix(x)+1,STAGES.length-1)].id);return}
  if(a==="delcand"){const x=state.candidates[t.dataset.id];if(!x)return;
    if(t.dataset.sure){state.open=null;removeCandidate(x.id);toast("Removed")}
